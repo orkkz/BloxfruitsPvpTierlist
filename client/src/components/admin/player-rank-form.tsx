@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,6 +41,14 @@ const playerRankSchema = z.object({
   combatTitle: z.string().min(1, "Combat Title is required"),
   points: z.string().transform(val => parseInt(val, 10)).optional(),
   bounty: z.string().optional(),
+  // Multiple categories support
+  multipleCategories: z.boolean().default(false),
+  additionalCategories: z.array(
+    z.object({
+      category: z.string(),
+      tier: z.string()
+    })
+  ).default([]),
   // Manual input fields
   useManualInput: z.boolean().default(false),
   manualUsername: z.string().optional(),
@@ -49,6 +57,10 @@ const playerRankSchema = z.object({
 });
 
 type FormValues = z.infer<typeof playerRankSchema>;
+type AdditionalCategory = {
+  category: string;
+  tier: string;
+};
 
 interface RecentUpdate {
   playerName: string;
@@ -62,7 +74,17 @@ export function PlayerRankForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([]);
   const [useManualInput, setUseManualInput] = useState(false);
+  const [useMultipleCategories, setUseMultipleCategories] = useState(false);
   const { toast } = useToast();
+  
+  // Define category options
+  const categories = [
+    { value: "melee", label: "Melee" },
+    { value: "fruit", label: "Fruit" },
+    { value: "sword", label: "Sword" },
+    { value: "gun", label: "Gun" },
+    { value: "bounty", label: "Bounty" },
+  ];
   
   const form = useForm<FormValues>({
     resolver: zodResolver(playerRankSchema),
@@ -74,6 +96,10 @@ export function PlayerRankForm() {
       combatTitle: "Combat Master",
       points: "300",
       bounty: "0",
+      // Multiple categories
+      multipleCategories: false,
+      additionalCategories: [],
+      // Manual input
       useManualInput: false,
       manualUsername: "",
       manualDisplayName: "",
@@ -81,12 +107,41 @@ export function PlayerRankForm() {
     },
   });
 
+  // Initialize additionalCategories when multiple categories is enabled
+  useEffect(() => {
+    if (useMultipleCategories) {
+      const primaryCategory = form.getValues().category;
+      const categoriesExcludingPrimary = categories
+        .filter(cat => cat.value !== primaryCategory)
+        .map(cat => ({
+          category: cat.value,
+          tier: ""
+        }));
+      
+      // Only set if not already set
+      const currentValues = form.getValues().additionalCategories || [];
+      if (currentValues.length === 0) {
+        form.setValue('additionalCategories', categoriesExcludingPrimary);
+      }
+    }
+  }, [useMultipleCategories, form, form.getValues().category]);
+
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
       // Convert points to appropriate types
       const pointsValue = values.points ? parseInt(values.points.toString(), 10) : 300;
       
+      // Create additional categories array if multiple categories are selected
+      const additionalCategories: Array<{category: string, tier: TierGrade}> = useMultipleCategories 
+        ? values.additionalCategories
+          .filter((cat: AdditionalCategory) => cat && cat.tier && cat.tier !== "") // Only include categories with selected tiers
+          .map((cat: AdditionalCategory) => ({
+            category: cat.category,
+            tier: cat.tier as TierGrade
+          }))
+        : [];
+
       // Get the Roblox user data using our API
       const result = await addPlayerWithTier({
         robloxId: values.robloxId,
@@ -96,18 +151,29 @@ export function PlayerRankForm() {
         combatTitle: values.combatTitle,
         points: pointsValue,
         bounty: values.bounty,
+        // Multiple categories
+        categories: additionalCategories.length > 0 ? additionalCategories : undefined,
+        // Manual input
         manualUsername: values.useManualInput ? values.manualUsername : undefined,
         manualDisplayName: values.useManualInput ? values.manualDisplayName : undefined,
         manualAvatarUrl: values.useManualInput ? values.manualAvatarUrl : undefined,
         useManualInput: values.useManualInput,
       });
       
+      // Primary category update message
+      let updateMessage = `Updated ${result.player.username}'s ${values.category} rank to ${values.tier}`;
+      
+      // Additional categories message if applicable
+      if (additionalCategories.length > 0) {
+        updateMessage += ` and ${additionalCategories.length} additional ${additionalCategories.length === 1 ? 'category' : 'categories'}`;
+      }
+      
       toast({
         title: "Player rank updated",
-        description: `Updated ${result.player.username}'s ${values.category} rank to ${values.tier}`,
+        description: updateMessage,
       });
       
-      // Add to recent updates
+      // Add primary category to recent updates
       setRecentUpdates((prev) => [
         {
           playerName: result.player.username,
@@ -118,6 +184,22 @@ export function PlayerRankForm() {
         },
         ...prev.slice(0, 9), // Keep only the 10 most recent updates
       ]);
+      
+      // Add additional categories to recent updates if applicable
+      if (additionalCategories.length > 0) {
+        const newUpdates = additionalCategories.map(cat => ({
+          playerName: result.player.username,
+          category: cat.category,
+          tier: cat.tier,
+          region: values.region,
+          timestamp: new Date(),
+        }));
+        
+        setRecentUpdates((prev) => [
+          ...newUpdates,
+          ...prev.slice(0, 10 - newUpdates.length), // Ensure we only keep 10 items total
+        ]);
+      }
       
       // Reset form
       form.reset({
@@ -132,10 +214,13 @@ export function PlayerRankForm() {
         manualUsername: "",
         manualDisplayName: "",
         manualAvatarUrl: "",
+        multipleCategories: false,
+        additionalCategories: [],
       });
       
-      // Also reset the state variable
+      // Also reset the state variables
       setUseManualInput(false);
+      setUseMultipleCategories(false);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/players'] });
@@ -151,14 +236,6 @@ export function PlayerRankForm() {
       setIsSubmitting(false);
     }
   };
-
-  const categories = [
-    { value: "melee", label: "Melee" },
-    { value: "fruit", label: "Fruit" },
-    { value: "sword", label: "Sword" },
-    { value: "gun", label: "Gun" },
-    { value: "bounty", label: "Bounty" },
-  ];
 
   const regions = [
     { value: "Global", label: "Global" },
@@ -215,31 +292,59 @@ export function PlayerRankForm() {
     <div className="space-y-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="useManualInput"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3 mb-2">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base text-gray-300">
-                    Manual Input Mode
-                  </FormLabel>
-                  <FormDescription className="text-xs text-gray-400">
-                    Override auto-fetched Roblox data with custom values
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={(checked) => {
-                      field.onChange(checked);
-                      setUseManualInput(checked);
-                    }}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="useManualInput"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3 mb-2">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base text-gray-300">
+                      Manual Input Mode
+                    </FormLabel>
+                    <FormDescription className="text-xs text-gray-400">
+                      Override auto-fetched Roblox data
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        setUseManualInput(checked);
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="multipleCategories"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3 mb-2">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base text-gray-300">
+                      Multiple Categories
+                    </FormLabel>
+                    <FormDescription className="text-xs text-gray-400">
+                      Rate player in multiple categories
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        setUseMultipleCategories(checked);
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
           
           <FormField
             control={form.control}
@@ -437,10 +542,26 @@ export function PlayerRankForm() {
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-gray-300">Category</FormLabel>
+                  <FormLabel className="text-gray-300">Primary Category</FormLabel>
                   <Select
                     disabled={isSubmitting}
-                    onValueChange={field.onChange}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Update additionalCategories when primary category changes
+                      if (useMultipleCategories) {
+                        const categoriesExcludingPrimary = categories
+                          .filter(cat => cat.value !== value)
+                          .map(cat => {
+                            // Keep existing tier values if present
+                            const existingCat = form.getValues().additionalCategories?.find(c => c.category === cat.value);
+                            return {
+                              category: cat.value,
+                              tier: existingCat ? existingCat.tier : ""
+                            };
+                          });
+                        form.setValue('additionalCategories', categoriesExcludingPrimary);
+                      }
+                    }}
                     defaultValue={field.value}
                   >
                     <FormControl>
@@ -466,7 +587,7 @@ export function PlayerRankForm() {
               name="tier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-gray-300">Tier</FormLabel>
+                  <FormLabel className="text-gray-300">Primary Tier</FormLabel>
                   <Select
                     disabled={isSubmitting}
                     onValueChange={field.onChange}
@@ -490,6 +611,62 @@ export function PlayerRankForm() {
               )}
             />
           </div>
+          
+          {useMultipleCategories && (
+            <div className="border border-gray-700 rounded-lg p-4 mb-2 bg-gray-800/50">
+              <h3 className="text-amber-400 font-medium mb-3">Additional Categories</h3>
+              
+              {categories.filter(cat => cat.value !== form.getValues().category).map((category, index) => {
+                return (
+                  <div key={category.value} className="grid grid-cols-2 gap-4 mb-3">
+                    <div className="flex items-center">
+                      <span className={`text-lg font-medium ${getCategoryColor(category.value)}`}>
+                        {category.label}
+                      </span>
+                    </div>
+                    
+                    <FormField
+                      control={form.control}
+                      name={`additionalCategories.${index}.tier`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <Select
+                            disabled={isSubmitting}
+                            onValueChange={(value) => {
+                              // Update the additionalCategories array
+                              const currentValues = form.getValues().additionalCategories || [];
+                              const updatedValues = [...currentValues];
+                              updatedValues[index] = {
+                                category: category.value,
+                                tier: value
+                              } as AdditionalCategory;
+                              form.setValue('additionalCategories', updatedValues);
+                            }}
+                            defaultValue=""
+                          >
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-800 border-gray-700 text-white focus:border-amber-500">
+                                <SelectValue placeholder="Select tier" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                              <SelectItem value="">Not Rated</SelectItem>
+                              {tiers.map((tier) => (
+                                <SelectItem key={tier.value} value={tier.value}>
+                                  {tier.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
           
           <Button
             type="submit"

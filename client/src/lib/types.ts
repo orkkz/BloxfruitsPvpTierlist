@@ -63,6 +63,8 @@ export interface NewPlayerData {
   combatTitle?: string;
   points?: number;
   bounty?: string;
+  // Multiple categories support
+  categories?: { category: string, tier: TierGrade }[];
   // Manual input fields
   useManualInput?: boolean;
   manualUsername?: string;

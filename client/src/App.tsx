@@ -6,7 +6,7 @@ import NotFound from "@/pages/not-found";
 import Rankings from "@/pages/rankings";
 import Admin from "@/pages/admin";
 import AuthPage from "@/pages/auth-page";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider } from "./hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 
 function Router() {

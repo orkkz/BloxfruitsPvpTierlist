@@ -86,13 +86,18 @@ export async function seedDefaultAdmin() {
     const [admins] = await pool.execute('SELECT * FROM admins WHERE username = ?', ['lucifer']);
     
     if (Array.isArray(admins) && admins.length === 0) {
-      // Insert default admin (username: lucifer, password: mephist)
-      // In a real application, you would hash the password
+      // Import the hashPassword function from password-utils.ts
+      const { hashPassword } = require('./password-utils');
+      
+      // Hash the password
+      const hashedPassword = await hashPassword('mephist');
+      
+      // Insert default admin (username: lucifer, password: hashed)
       await pool.execute(
         'INSERT INTO admins (username, password) VALUES (?, ?)',
-        ['lucifer', 'mephist']
+        ['lucifer', hashedPassword]
       );
-      console.log('Default admin created');
+      console.log('Default admin created with username: lucifer and password: mephist');
     }
     
     return true;

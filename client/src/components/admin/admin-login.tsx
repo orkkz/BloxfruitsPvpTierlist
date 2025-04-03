@@ -2,7 +2,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LoginCredentials } from "@/lib/types";
+import { LoginCredentials } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -20,7 +20,7 @@ const loginSchema = z.object({
 });
 
 interface AdminLoginProps {
-  onLogin: (credentials: LoginCredentials) => Promise<boolean>;
+  onLogin: (credentials: LoginCredentials) => void;
   isLoading: boolean;
 }
 
@@ -33,8 +33,8 @@ export function AdminLogin({ onLogin, isLoading }: AdminLoginProps) {
     },
   });
 
-  const handleSubmit = async (values: LoginCredentials) => {
-    await onLogin(values);
+  const handleSubmit = (values: LoginCredentials) => {
+    onLogin(values);
   };
 
   return (

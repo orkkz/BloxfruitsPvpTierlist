@@ -56,9 +56,9 @@ export async function getPlayerById(id: number): Promise<PlayerWithTiers> {
 }
 
 /**
- * Add or update a player with a tier
+ * Add or update a player with tiers
  */
-export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: Player, tier: Tier }> {
+export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: Player, tier: Tier, additionalTiers?: Tier[] }> {
   try {
     // Player data to use for creating/updating
     let playerData: any = {
@@ -98,7 +98,7 @@ export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: 
     
     const player = await playerRes.json();
     
-    // Create or update tier
+    // Create or update the primary tier
     const tierRes = await apiRequest("POST", "/api/tiers", {
       playerId: player.id,
       category: data.category,
@@ -106,12 +106,35 @@ export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: 
     });
     
     if (!tierRes.ok) {
-      throw new Error("Failed to create/update tier");
+      throw new Error("Failed to create/update primary tier");
     }
     
     const tier = await tierRes.json();
     
-    return { player, tier };
+    // If there are additional categories to add
+    let additionalTiers: Tier[] = [];
+    if (data.categories && data.categories.length > 0) {
+      const tierPromises = data.categories.map(catTier => 
+        apiRequest("POST", "/api/tiers", {
+          playerId: player.id,
+          category: catTier.category,
+          tier: catTier.tier
+        }).then(res => {
+          if (!res.ok) {
+            throw new Error(`Failed to create/update tier for ${catTier.category}`);
+          }
+          return res.json();
+        })
+      );
+      
+      additionalTiers = await Promise.all(tierPromises);
+    }
+    
+    return { 
+      player, 
+      tier,
+      additionalTiers: additionalTiers.length > 0 ? additionalTiers : undefined
+    };
   } catch (error) {
     console.error("Error adding player with tier:", error);
     throw error;
