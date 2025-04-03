@@ -10,7 +10,13 @@ import {
   regionColors 
 } from "@/lib/utils";
 import { TierBadge } from "@/components/ui/tier-badge";
-import { Award } from "lucide-react";
+import { 
+  Award, 
+  Sword, 
+  Hammer, 
+  Apple, 
+  Crosshair 
+} from "lucide-react";
 
 interface PlayerCardProps {
   playerWithTiers: PlayerWithTiers;
@@ -37,14 +43,22 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
     gun: "text-cyan-500"
   };
   
+  // Category icon mapping
+  const categoryIcons = {
+    melee: <Hammer className="h-4 w-4" />,
+    fruit: <Apple className="h-4 w-4" />,
+    sword: <Sword className="h-4 w-4" />,
+    gun: <Crosshair className="h-4 w-4" />
+  };
+  
   return (
     <tr className="player-card border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
       <td className="py-4">
         <span className={`text-2xl font-bold ${medalColor}`}>{rank}</span>
       </td>
       <td>
-        <div className="flex items-center">
-          <div className={`w-12 h-12 rounded-lg overflow-hidden mr-3 border-2 ${borderColor}`}>
+        <div className="flex flex-col items-center">
+          <div className={`w-16 h-16 rounded-lg overflow-hidden mb-2 border-2 ${borderColor}`}>
             <img 
               src={player.avatarUrl} 
               alt={`${player.username}'s avatar`}
@@ -56,9 +70,9 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
               }}
             />
           </div>
-          <div>
+          <div className="text-center">
             <div className="font-semibold text-white">{player.username || "Unknown Player"}</div>
-            <div className="flex items-center">
+            <div className="flex items-center justify-center">
               <Award className={`h-4 w-4 mr-1.5 ${medalColor}`} />
               <span className="text-sm text-gray-300">
                 {formatCombatTitle(player.combatTitle, player.points)}
@@ -73,12 +87,15 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
         </span>
       </td>
       <td>
-        <div className="flex flex-wrap justify-end gap-1 md:gap-2">
+        <div className="flex flex-wrap justify-end gap-2 md:gap-3">
           {orderedTiers.map((tier, index) => (
             <div key={index} className="flex flex-col items-center">
-              <span className={`text-xs mb-1 ${categoryColors[tier?.category as keyof typeof categoryColors] || "text-gray-400"}`}>
-                {tier?.category ? tier.category.charAt(0).toUpperCase() + tier.category.slice(1) : "Unknown"}
-              </span>
+              <div className={`flex items-center mb-1 ${categoryColors[tier?.category as keyof typeof categoryColors] || "text-gray-400"}`}>
+                {tier?.category && categoryIcons[tier.category as keyof typeof categoryIcons]}
+                <span className="text-xs ml-1 font-medium">
+                  {tier?.category ? tier.category.charAt(0).toUpperCase() + tier.category.slice(1) : "Unknown"}
+                </span>
+              </div>
               <TierBadge tier={tier?.tier as TierGrade} />
             </div>
           ))}

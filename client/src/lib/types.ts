@@ -61,6 +61,11 @@ export interface NewPlayerData {
   region?: string;
   combatTitle?: string;
   points?: number;
+  // Manual input fields
+  useManualInput?: boolean;
+  manualUsername?: string;
+  manualDisplayName?: string;
+  manualAvatarUrl?: string;
 }
 
 export interface CategoryOption {

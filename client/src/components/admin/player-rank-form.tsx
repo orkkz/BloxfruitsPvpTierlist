@@ -12,6 +12,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,13 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 const playerRankSchema = z.object({
   robloxId: z.string().min(1, "Roblox ID is required"),
@@ -32,6 +40,11 @@ const playerRankSchema = z.object({
   region: z.string().min(1, "Region is required"),
   combatTitle: z.string().min(1, "Combat Title is required"),
   points: z.string().transform(val => parseInt(val, 10)).optional(),
+  // Manual input fields
+  useManualInput: z.boolean().default(false),
+  manualUsername: z.string().optional(),
+  manualDisplayName: z.string().optional(),
+  manualAvatarUrl: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof playerRankSchema>;
@@ -47,6 +60,7 @@ interface RecentUpdate {
 export function PlayerRankForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([]);
+  const [useManualInput, setUseManualInput] = useState(false);
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
@@ -58,6 +72,10 @@ export function PlayerRankForm() {
       region: "Global",
       combatTitle: "Combat Master",
       points: "300",
+      useManualInput: false,
+      manualUsername: "",
+      manualDisplayName: "",
+      manualAvatarUrl: "",
     },
   });
 
@@ -75,6 +93,10 @@ export function PlayerRankForm() {
         region: values.region,
         combatTitle: values.combatTitle,
         points: pointsValue,
+        manualUsername: values.useManualInput ? values.manualUsername : undefined,
+        manualDisplayName: values.useManualInput ? values.manualDisplayName : undefined,
+        manualAvatarUrl: values.useManualInput ? values.manualAvatarUrl : undefined,
+        useManualInput: values.useManualInput,
       });
       
       toast({
@@ -102,7 +124,14 @@ export function PlayerRankForm() {
         region: "Global",
         combatTitle: "Combat Master",
         points: "300",
+        useManualInput: false,
+        manualUsername: "",
+        manualDisplayName: "",
+        manualAvatarUrl: "",
       });
+      
+      // Also reset the state variable
+      setUseManualInput(false);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/players'] });
@@ -182,6 +211,32 @@ export function PlayerRankForm() {
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <FormField
             control={form.control}
+            name="useManualInput"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3 mb-2">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base text-gray-300">
+                    Manual Input Mode
+                  </FormLabel>
+                  <FormDescription className="text-xs text-gray-400">
+                    Override auto-fetched Roblox data with custom values
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked);
+                      setUseManualInput(checked);
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
             name="robloxId"
             render={({ field }) => (
               <FormItem>
@@ -259,6 +314,73 @@ export function PlayerRankForm() {
             />
           </div>
           
+          {useManualInput && (
+            <div className="border border-gray-700 rounded-lg p-4 mb-2 bg-gray-800/50">
+              <h3 className="text-amber-400 font-medium mb-3">Manual Player Data</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <FormField
+                  control={form.control}
+                  name="manualUsername"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Custom Username</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                          placeholder="Enter username"
+                          disabled={isSubmitting}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="manualDisplayName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Custom Display Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                          placeholder="Enter display name"
+                          disabled={isSubmitting}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="manualAvatarUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-300">Custom Avatar URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                        placeholder="https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1952558313&size=420x420&format=Png&isCircular=false"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs text-gray-400">
+                      Example: {field.value || "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1952558313&size=420x420&format=Png&isCircular=false"}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+
           <FormField
             control={form.control}
             name="points"

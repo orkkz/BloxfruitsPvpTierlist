@@ -60,22 +60,36 @@ export async function getPlayerById(id: number): Promise<PlayerWithTiers> {
  */
 export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: Player, tier: Tier }> {
   try {
-    // First, get Roblox user data
-    const robloxUser = await getRobloxUserById(data.robloxId);
-    
-    if (!robloxUser) {
-      throw new Error("Failed to fetch Roblox user data");
-    }
-    
-    // Create or update player
-    const playerRes = await apiRequest("POST", "/api/players", {
+    // Player data to use for creating/updating
+    let playerData: any = {
       robloxId: data.robloxId,
-      username: robloxUser.username,
-      avatarUrl: robloxUser.avatarUrl,
       combatTitle: data.combatTitle || "Combat Master",
       points: data.points || 300,
       region: data.region || "Global"
-    });
+    };
+
+    // If using manual input, use the provided values
+    if (data.useManualInput && data.manualUsername && data.manualAvatarUrl) {
+      playerData.username = data.manualUsername;
+      playerData.avatarUrl = data.manualAvatarUrl;
+      // If display name provided, use it
+      if (data.manualDisplayName) {
+        playerData.displayName = data.manualDisplayName;
+      }
+    } else {
+      // Otherwise fetch from Roblox API
+      const robloxUser = await getRobloxUserById(data.robloxId);
+      
+      if (!robloxUser) {
+        throw new Error("Failed to fetch Roblox user data");
+      }
+      
+      playerData.username = robloxUser.username;
+      playerData.avatarUrl = robloxUser.avatarUrl;
+    }
+    
+    // Create or update player
+    const playerRes = await apiRequest("POST", "/api/players", playerData);
     
     if (!playerRes.ok) {
       throw new Error("Failed to create/update player");
