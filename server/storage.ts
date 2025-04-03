@@ -444,10 +444,11 @@ export class MemStorage implements IStorage {
       checkPeriod: 86400000 // prune expired entries every 24h
     });
     
-    // Initialize with default admin
-    this.createAdmin({
+    // Initialize with default admin (using pre-hashed password for 'mephist')
+    this.admins.set(this.adminIdCounter++, {
+      id: 1,
       username: "lucifer",
-      password: "mephist" // In a real app, this would be hashed
+      password: "45092e0c0e5822ae252b3b5e86fb6a4a57c9a639b951a2c6c0ac1db5da28647a6bfd8a6ebb75b38759ba53a3765c3d0f69845dfedd30dd073b27ffd3e5bb4265.7c9bf9c2aede0ef6b4395a40928f7c5b" // hashed version of 'mephist'
     });
   }
 

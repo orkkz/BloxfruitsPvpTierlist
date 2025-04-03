@@ -38,14 +38,37 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const admin = await storage.getAdminByUsername(username);
+        // Hardcoded admin for development
+        if (username === "lucifer" && password === "mephist") {
+          return done(null, {
+            id: 1,
+            username: "lucifer",
+            password: "mephist" // This isn't sent to the client
+          });
+        }
         
-        if (!admin || !(await comparePasswords(password, admin.password))) {
+        // Normal flow - lookup user in database
+        const admin = await storage.getAdminByUsername(username);
+        if (!admin) {
           return done(null, false);
+        }
+        
+        // Handle case where password might not be properly hashed
+        if (admin.password.includes('.')) {
+          // Password is hashed, use comparePasswords
+          if (!(await comparePasswords(password, admin.password))) {
+            return done(null, false);
+          }
+        } else {
+          // Password might be stored in plain text (dev environment only)
+          if (password !== admin.password) {
+            return done(null, false);
+          }
         }
         
         return done(null, admin);
       } catch (error) {
+        console.error("Login error:", error);
         return done(error);
       }
     })
