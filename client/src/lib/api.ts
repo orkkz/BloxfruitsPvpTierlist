@@ -65,7 +65,8 @@ export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: 
       robloxId: data.robloxId,
       combatTitle: data.combatTitle || "Combat Master",
       points: data.points || 300,
-      region: data.region || "Global"
+      region: data.region || "Global",
+      bounty: data.bounty || "0"
     };
 
     // If using manual input, use the provided values

@@ -10,6 +10,7 @@ export const players = pgTable("players", {
   avatarUrl: text("avatar_url").notNull(),
   combatTitle: varchar("combat_title", { length: 100 }).default("Rookie"),
   points: integer("points").default(0),
+  bounty: varchar("bounty", { length: 20 }).default("0"),
   region: varchar("region", { length: 10 }).default("NA"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -64,8 +65,19 @@ export const loginSchema = z.object({
 
 export type LoginCredentials = z.infer<typeof loginSchema>;
 
-export const categoryEnum = z.enum(["overall", "melee", "fruit", "sword", "gun"]);
+export const categoryEnum = z.enum(["overall", "melee", "fruit", "sword", "gun", "bounty"]);
 export type Category = z.infer<typeof categoryEnum>;
 
 export const tierEnum = z.enum(["SS", "S", "A", "B", "C", "D", "E"]);
 export type TierGrade = z.infer<typeof tierEnum>;
+
+// Zod schema for validating bounty values with K/M suffixes
+export const bountySchema = z.string().refine(
+  (val) => {
+    // Allow formats like 30M, 321K, 500, etc.
+    return /^\d+(\.\d+)?[KMB]?$/i.test(val);
+  },
+  {
+    message: "Bounty must be a number with optional K, M, or B suffix (e.g., 30M, 321K)",
+  }
+);

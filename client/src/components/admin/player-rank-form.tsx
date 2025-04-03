@@ -40,6 +40,7 @@ const playerRankSchema = z.object({
   region: z.string().min(1, "Region is required"),
   combatTitle: z.string().min(1, "Combat Title is required"),
   points: z.string().transform(val => parseInt(val, 10)).optional(),
+  bounty: z.string().optional(),
   // Manual input fields
   useManualInput: z.boolean().default(false),
   manualUsername: z.string().optional(),
@@ -72,6 +73,7 @@ export function PlayerRankForm() {
       region: "Global",
       combatTitle: "Combat Master",
       points: "300",
+      bounty: "0",
       useManualInput: false,
       manualUsername: "",
       manualDisplayName: "",
@@ -82,8 +84,8 @@ export function PlayerRankForm() {
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
-      // Convert points from string to number
-      const pointsValue = values.points ? parseInt(values.points, 10) : 300;
+      // Convert points to appropriate types
+      const pointsValue = values.points ? parseInt(values.points.toString(), 10) : 300;
       
       // Get the Roblox user data using our API
       const result = await addPlayerWithTier({
@@ -93,6 +95,7 @@ export function PlayerRankForm() {
         region: values.region,
         combatTitle: values.combatTitle,
         points: pointsValue,
+        bounty: values.bounty,
         manualUsername: values.useManualInput ? values.manualUsername : undefined,
         manualDisplayName: values.useManualInput ? values.manualDisplayName : undefined,
         manualAvatarUrl: values.useManualInput ? values.manualAvatarUrl : undefined,
@@ -124,6 +127,7 @@ export function PlayerRankForm() {
         region: "Global",
         combatTitle: "Combat Master",
         points: "300",
+        bounty: "0",
         useManualInput: false,
         manualUsername: "",
         manualDisplayName: "",
@@ -153,6 +157,7 @@ export function PlayerRankForm() {
     { value: "fruit", label: "Fruit" },
     { value: "sword", label: "Sword" },
     { value: "gun", label: "Gun" },
+    { value: "bounty", label: "Bounty" },
   ];
 
   const regions = [
@@ -188,6 +193,7 @@ export function PlayerRankForm() {
       case "fruit": return "text-green-500";
       case "sword": return "text-yellow-400";
       case "gun": return "text-cyan-500";
+      case "bounty": return "text-red-500";
       default: return "text-gray-300";
     }
   };
@@ -381,25 +387,49 @@ export function PlayerRankForm() {
             </div>
           )}
 
-          <FormField
-            control={form.control}
-            name="points"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-gray-300">Combat Points</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
-                    placeholder="Enter points (e.g., 300)"
-                    disabled={isSubmitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="points"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-300">Combat Points</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                      placeholder="Enter points (e.g., 300)"
+                      disabled={isSubmitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="bounty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-300">Bounty</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                      placeholder="Enter bounty (e.g., 5M, 500K)"
+                      disabled={isSubmitting}
+                    />
+                  </FormControl>
+                  <FormDescription className="text-xs text-gray-400">
+                    Format as 5M, 500K, etc.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           
           <div className="grid grid-cols-2 gap-4">
             <FormField

@@ -77,7 +77,13 @@ export class MemStorage implements IStorage {
     const id = this.playerIdCounter++;
     const player: Player = {
       id,
-      ...playerData,
+      robloxId: playerData.robloxId,
+      username: playerData.username,
+      avatarUrl: playerData.avatarUrl,
+      region: playerData.region || "Global",
+      combatTitle: playerData.combatTitle || "Rookie",
+      points: playerData.points || 0,
+      bounty: playerData.bounty || "0",
       createdAt: new Date()
     };
     this.players.set(id, player);
@@ -90,7 +96,13 @@ export class MemStorage implements IStorage {
     
     const updatedPlayer: Player = {
       ...player,
-      ...playerData
+      robloxId: playerData.robloxId || player.robloxId,
+      username: playerData.username || player.username,
+      avatarUrl: playerData.avatarUrl || player.avatarUrl,
+      combatTitle: playerData.combatTitle || player.combatTitle,
+      points: playerData.points !== undefined ? playerData.points : player.points,
+      region: playerData.region || player.region,
+      bounty: playerData.bounty || player.bounty
     };
     this.players.set(id, updatedPlayer);
     return updatedPlayer;
@@ -215,7 +227,11 @@ export class MemStorage implements IStorage {
     }
 
     // Sort by points (highest first)
-    result.sort((a, b) => b.player.points - a.player.points);
+    result.sort((a, b) => {
+      const pointsA = a.player.points || 0;
+      const pointsB = b.player.points || 0;
+      return pointsB - pointsA;
+    });
     
     return result;
   }

@@ -15,7 +15,8 @@ import {
   Sword, 
   Hammer, 
   Apple, 
-  Crosshair 
+  Crosshair,
+  DollarSign
 } from "lucide-react";
 
 interface PlayerCardProps {
@@ -27,7 +28,7 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
   const { player, tiers } = playerWithTiers;
   
   // Order tiers consistently
-  const orderedCategories = ["melee", "fruit", "sword", "gun"];
+  const orderedCategories = ["melee", "fruit", "sword", "gun", "bounty"];
   const orderedTiers = orderedCategories
     .map(category => tiers.find(tier => tier.category === category))
     .filter(Boolean);
@@ -40,7 +41,8 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
     melee: "text-orange-600",
     fruit: "text-green-500",
     sword: "text-yellow-400",
-    gun: "text-cyan-500"
+    gun: "text-cyan-500",
+    bounty: "text-red-500"
   };
   
   // Category icon mapping
@@ -48,7 +50,8 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
     melee: <Hammer className="h-4 w-4" />,
     fruit: <Apple className="h-4 w-4" />,
     sword: <Sword className="h-4 w-4" />,
-    gun: <Crosshair className="h-4 w-4" />
+    gun: <Crosshair className="h-4 w-4" />,
+    bounty: <DollarSign className="h-4 w-4" />
   };
   
   return (
@@ -58,21 +61,35 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
       </td>
       <td>
         <div className="flex items-center">
-          <div className={`w-14 h-14 rounded-lg overflow-hidden mr-3 border-2 ${borderColor}`}>
-            <img 
-              src={player.avatarUrl} 
-              alt={`${player.username}'s avatar`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback for broken images
-                const target = e.target as HTMLImageElement;
-                target.src = "https://tr.rbxcdn.com/53eb9b17fe1432a809c73a13889b5006/420/420/Image/Png";
-              }}
-            />
-          </div>
+          <a 
+            href={`https://www.roblox.com/users/${player.robloxId}/profile`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block"
+          >
+            <div className={`w-14 h-14 rounded-lg overflow-hidden mr-3 border-2 ${borderColor} hover:opacity-90 transition-opacity`}>
+              <img 
+                src={player.avatarUrl} 
+                alt={`${player.username}'s avatar`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback for broken images
+                  const target = e.target as HTMLImageElement;
+                  target.src = "https://tr.rbxcdn.com/53eb9b17fe1432a809c73a13889b5006/420/420/Image/Png";
+                }}
+              />
+            </div>
+          </a>
           <div>
-            {/* Display name in title font */}
-            <div className="text-lg font-bold text-white">{player.username || "Unknown Player"}</div>
+            {/* Display name in title font with clickable link */}
+            <a 
+              href={`https://www.roblox.com/users/${player.robloxId}/profile`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-bold text-white hover:text-amber-400 transition-colors"
+            >
+              {player.username || "Unknown Player"}
+            </a>
             {/* Username in subtitle font */}
             <div className="text-sm text-gray-400 -mt-0.5 mb-0.5">@{player.username || "unknown"}</div>
             <div className="flex items-center">
@@ -81,6 +98,15 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
                 {formatCombatTitle(player.combatTitle, player.points)}
               </span>
             </div>
+            {/* Display bounty if available */}
+            {player.bounty && player.bounty !== "0" && (
+              <div className="flex items-center mt-1">
+                <div className="flex items-center px-2 py-0.5 bg-red-900/30 rounded text-red-400 text-xs">
+                  <span className="font-bold">Bounty:</span>
+                  <span className="ml-1">{player.bounty}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -99,7 +125,13 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
                   {tier?.category ? tier.category.charAt(0).toUpperCase() + tier.category.slice(1) : "Unknown"}
                 </span>
               </div>
-              <TierBadge tier={tier?.tier as TierGrade} />
+              {tier?.category === "bounty" && tier?.tier ? (
+                <div className="px-2 py-1 bg-red-900/50 rounded text-white text-xs font-bold">
+                  {tier.tier}
+                </div>
+              ) : (
+                <TierBadge tier={tier?.tier as TierGrade} />
+              )}
             </div>
           ))}
         </div>

@@ -2,7 +2,7 @@
 
 export type TierGrade = "SS" | "S" | "A" | "B" | "C" | "D" | "E";
 
-export type Category = "overall" | "melee" | "fruit" | "sword" | "gun";
+export type Category = "overall" | "melee" | "fruit" | "sword" | "gun" | "bounty";
 
 export interface Player {
   id: number;
@@ -12,6 +12,7 @@ export interface Player {
   combatTitle: string;
   points: number;
   region: string;
+  bounty?: string;
 }
 
 export interface Tier {
@@ -61,6 +62,7 @@ export interface NewPlayerData {
   region?: string;
   combatTitle?: string;
   points?: number;
+  bounty?: string;
   // Manual input fields
   useManualInput?: boolean;
   manualUsername?: string;
