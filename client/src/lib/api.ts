@@ -129,3 +129,49 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
   
   return await response.json();
 }
+
+/**
+ * Delete a player by ID
+ */
+export async function deletePlayer(id: number): Promise<{ success: boolean }> {
+  const response = await apiRequest("DELETE", `/api/players/${id}`);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to delete player: ${response.statusText}`);
+  }
+  
+  return await response.json();
+}
+
+/**
+ * Update a player by ID
+ */
+export async function updatePlayer(id: number, data: Partial<Player>): Promise<Player> {
+  const response = await apiRequest("PUT", `/api/players/${id}`, data);
+  
+  if (!response.ok) {
+    throw new Error(`Failed to update player: ${response.statusText}`);
+  }
+  
+  return await response.json();
+}
+
+/**
+ * Update site settings (logo URL)
+ */
+export async function updateSiteSettings(logoUrl: string): Promise<{ success: boolean, logoUrl: string }> {
+  const response = await apiRequest("POST", "/api/settings", { logoUrl });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to update site settings: ${response.statusText}`);
+  }
+  
+  const result = await response.json();
+  
+  // Update logo URL in localStorage for immediate effect
+  if (result.success && result.logoUrl) {
+    localStorage.setItem('logoUrl', result.logoUrl);
+  }
+  
+  return result;
+}

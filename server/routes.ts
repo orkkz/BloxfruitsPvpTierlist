@@ -141,6 +141,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Delete a player by ID
+  apiRouter.delete("/players/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      
+      // Check if player exists
+      const player = await storage.getPlayerById(id);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // Delete player's tiers first
+      const tiers = await storage.getTiersByPlayerId(id);
+      for (const tier of tiers) {
+        await storage.deleteTier(tier.id);
+      }
+      
+      // Delete player
+      const deleted = await storage.deletePlayer(id);
+      return res.json({ success: deleted });
+    } catch (error) {
+      console.error("Error deleting player:", error);
+      return res.status(500).json({ message: "Failed to delete player" });
+    }
+  });
+  
+  // Update a player by ID
+  apiRouter.put("/players/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      
+      // Check if player exists
+      const player = await storage.getPlayerById(id);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // Validate update data
+      const playerData = insertPlayerSchema.partial().parse(req.body);
+      
+      // Update player
+      const updatedPlayer = await storage.updatePlayer(id, playerData);
+      return res.json(updatedPlayer);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid player data", errors: error.errors });
+      }
+      console.error("Error updating player:", error);
+      return res.status(500).json({ message: "Failed to update player" });
+    }
+  });
+  
+  // Update site settings (logo URL)
+  apiRouter.post("/settings", async (req: Request, res: Response) => {
+    try {
+      const { logoUrl } = req.body;
+      
+      if (typeof logoUrl !== 'string') {
+        return res.status(400).json({ message: "Invalid logo URL" });
+      }
+      
+      // In a real app, you would store this in a database
+      // For simplicity, we'll just send it back as a successful response
+      return res.json({ success: true, logoUrl });
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      return res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+  
   // Register the API routes
   app.use("/api", apiRouter);
   

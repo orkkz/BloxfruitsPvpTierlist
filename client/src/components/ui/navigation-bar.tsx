@@ -42,25 +42,34 @@ export function NavigationBar({ onSearch }: NavigationBarProps) {
   return (
     <header className="sticky top-0 z-50 w-full bg-[#0A0C12] border-b border-gray-800 shadow-lg">
       <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/">
-              <div className="flex items-center cursor-pointer">
-                <div className="h-12 w-auto mr-2">
-                  <img 
-                    src="/attached_assets/blox_piece_logo.png" 
-                    alt="Blox Piece Logo" 
-                    className="h-full object-contain"
-                  />
-                </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-transparent bg-clip-text">
-                  TIERS
-                </span>
+        {/* Logo - Centered at the top */}
+        <div className="flex justify-center mb-3">
+          <Link href="/">
+            <div className="flex flex-col items-center cursor-pointer">
+              <div className="h-16 w-auto mx-auto">
+                <img 
+                  src={localStorage.getItem('logoUrl') || "https://static.wikia.nocookie.net/roblox-blox-piece/images/e/e6/Site-logo.png"} 
+                  alt="Blox Piece Logo" 
+                  className="h-full object-contain"
+                  onError={(e) => {
+                    // Fallback for broken images
+                    const target = e.target as HTMLImageElement;
+                    target.src = "https://placehold.co/200x100/text=Blox+Piece";
+                  }}
+                />
               </div>
-            </Link>
-            
+              <span className="text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-transparent bg-clip-text mt-1">
+                TIERS
+              </span>
+            </div>
+          </Link>
+        </div>
+        
+        {/* Navigation and Search */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">            
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-6 text-gray-300 ml-8">
+            <nav className="hidden md:flex items-center space-x-6 text-gray-300">
               <Link href="/">
                 <a className={`flex items-center hover:text-white transition-colors ${location === "/" ? "text-white font-semibold" : ""}`}>
                   <Home className="mr-2 h-4 w-4" />
