@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { TierGrade, Category } from "@/lib/types";
@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, PlusCircle, X } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -39,14 +39,13 @@ const playerRankSchema = z.object({
   tier: z.string().min(1, "Tier is required"),
   region: z.string().min(1, "Region is required"),
   combatTitle: z.string().min(1, "Combat Title is required"),
-  points: z.string().transform(val => parseInt(val, 10)).optional(),
+  points: z.string().optional(),
   bounty: z.string().optional(),
-  // Multiple categories support
-  multipleCategories: z.boolean().default(false),
+  // Additional categories support
   additionalCategories: z.array(
     z.object({
-      category: z.string(),
-      tier: z.string()
+      category: z.string().min(1, "Category is required"),
+      tier: z.string().min(1, "Tier is required")
     })
   ).default([]),
   // Manual input fields
@@ -74,7 +73,6 @@ export function PlayerRankForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentUpdates, setRecentUpdates] = useState<RecentUpdate[]>([]);
   const [useManualInput, setUseManualInput] = useState(false);
-  const [useMultipleCategories, setUseMultipleCategories] = useState(false);
   const { toast } = useToast();
   
   // Define category options
@@ -96,35 +94,38 @@ export function PlayerRankForm() {
       combatTitle: "Combat Master",
       points: "300",
       bounty: "0",
-      // Multiple categories
-      multipleCategories: false,
       additionalCategories: [],
-      // Manual input
       useManualInput: false,
       manualUsername: "",
       manualDisplayName: "",
       manualAvatarUrl: "",
     },
   });
-
-  // Initialize additionalCategories when multiple categories is enabled
-  useEffect(() => {
-    if (useMultipleCategories) {
-      const primaryCategory = form.getValues().category;
-      const categoriesExcludingPrimary = categories
-        .filter(cat => cat.value !== primaryCategory)
-        .map(cat => ({
-          category: cat.value,
-          tier: ""
-        }));
-      
-      // Only set if not already set
-      const currentValues = form.getValues().additionalCategories || [];
-      if (currentValues.length === 0) {
-        form.setValue('additionalCategories', categoriesExcludingPrimary);
-      }
+  
+  // Setup field array for additional categories
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "additionalCategories"
+  });
+  
+  // Function to add a new category
+  const addCategory = () => {
+    const primaryCategory = form.getValues().category;
+    const usedCategories = [primaryCategory, ...fields.map(c => c.category)];
+    
+    // Find first available category that's not already used
+    const availableCategory = categories.find(c => !usedCategories.includes(c.value))?.value;
+    
+    if (availableCategory) {
+      append({ category: availableCategory, tier: "SS" });
+    } else {
+      toast({
+        title: "All categories used",
+        description: "You've already added all available categories",
+        variant: "destructive",
+      });
     }
-  }, [useMultipleCategories, form, form.getValues().category]);
+  };
 
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -132,15 +133,12 @@ export function PlayerRankForm() {
       // Convert points to appropriate types
       const pointsValue = values.points ? parseInt(values.points.toString(), 10) : 300;
       
-      // Create additional categories array if multiple categories are selected
-      const additionalCategories: Array<{category: string, tier: TierGrade}> = useMultipleCategories 
-        ? values.additionalCategories
-          .filter((cat: AdditionalCategory) => cat && cat.tier && cat.tier !== "") // Only include categories with selected tiers
-          .map((cat: AdditionalCategory) => ({
-            category: cat.category,
-            tier: cat.tier as TierGrade
-          }))
-        : [];
+      // Create additional categories array from the field array
+      const additionalCategories: Array<{category: string, tier: TierGrade}> = values.additionalCategories
+        .map((cat: AdditionalCategory) => ({
+          category: cat.category,
+          tier: cat.tier as TierGrade
+        }));
 
       // Get the Roblox user data using our API
       const result = await addPlayerWithTier({
@@ -201,7 +199,7 @@ export function PlayerRankForm() {
         ]);
       }
       
-      // Reset form
+      // Reset form and fields
       form.reset({
         robloxId: "",
         category: "melee",
@@ -214,13 +212,11 @@ export function PlayerRankForm() {
         manualUsername: "",
         manualDisplayName: "",
         manualAvatarUrl: "",
-        multipleCategories: false,
         additionalCategories: [],
       });
       
       // Also reset the state variables
       setUseManualInput(false);
-      setUseMultipleCategories(false);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/players'] });
@@ -319,31 +315,25 @@ export function PlayerRankForm() {
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="multipleCategories"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3 mb-2">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base text-gray-300">
-                      Multiple Categories
-                    </FormLabel>
-                    <FormDescription className="text-xs text-gray-400">
-                      Rate player in multiple categories
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        setUseMultipleCategories(checked);
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            <div className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3 mb-2">
+              <div className="space-y-0.5">
+                <div className="text-base text-gray-300">
+                  Additional Categories
+                </div>
+                <div className="text-xs text-gray-400">
+                  Rate player in multiple categories
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={addCategory}
+                variant="outline"
+                className="flex items-center gap-1 border-gray-600 text-amber-400 hover:text-amber-300"
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span>Add</span>
+              </Button>
+            </div>
           </div>
           
           <FormField
@@ -547,20 +537,13 @@ export function PlayerRankForm() {
                     disabled={isSubmitting}
                     onValueChange={(value) => {
                       field.onChange(value);
-                      // Update additionalCategories when primary category changes
-                      if (useMultipleCategories) {
-                        const categoriesExcludingPrimary = categories
-                          .filter(cat => cat.value !== value)
-                          .map(cat => {
-                            // Keep existing tier values if present
-                            const existingCat = form.getValues().additionalCategories?.find(c => c.category === cat.value);
-                            return {
-                              category: cat.value,
-                              tier: existingCat ? existingCat.tier : ""
-                            };
-                          });
-                        form.setValue('additionalCategories', categoriesExcludingPrimary);
-                      }
+                      // When primary category changes, make sure no duplicates in additional categories
+                      // Get current additional categories
+                      const currentAdditional = form.getValues().additionalCategories || [];
+                      // Remove any with the new primary category (to prevent duplicates)
+                      const filteredAdditional = currentAdditional.filter(cat => cat.category !== value);
+                      // Update the form
+                      form.setValue('additionalCategories', filteredAdditional);
                     }}
                     defaultValue={field.value}
                   >
@@ -612,37 +595,32 @@ export function PlayerRankForm() {
             />
           </div>
           
-          {useMultipleCategories && (
+          {fields.length > 0 && (
             <div className="border border-gray-700 rounded-lg p-4 mb-2 bg-gray-800/50">
               <h3 className="text-amber-400 font-medium mb-3">Additional Categories</h3>
               
-              {categories.filter(cat => cat.value !== form.getValues().category).map((category, index) => {
+              {fields.map((field, index) => {
+                // Find category object to get the label
+                const categoryObj = categories.find(c => c.value === field.category);
+                
                 return (
-                  <div key={category.value} className="grid grid-cols-2 gap-4 mb-3">
+                  <div key={field.id} className="grid grid-cols-3 gap-4 mb-3">
                     <div className="flex items-center">
-                      <span className={`text-lg font-medium ${getCategoryColor(category.value)}`}>
-                        {category.label}
+                      <span className={`text-lg font-medium ${getCategoryColor(field.category)}`}>
+                        {categoryObj?.label || field.category}
                       </span>
                     </div>
                     
                     <FormField
                       control={form.control}
                       name={`additionalCategories.${index}.tier`}
-                      render={({ field }) => (
+                      render={({ field: tierField }) => (
                         <FormItem>
                           <Select
                             disabled={isSubmitting}
-                            onValueChange={(value) => {
-                              // Update the additionalCategories array
-                              const currentValues = form.getValues().additionalCategories || [];
-                              const updatedValues = [...currentValues];
-                              updatedValues[index] = {
-                                category: category.value,
-                                tier: value
-                              } as AdditionalCategory;
-                              form.setValue('additionalCategories', updatedValues);
-                            }}
-                            defaultValue=""
+                            onValueChange={tierField.onChange}
+                            value={tierField.value}
+                            defaultValue="SS"
                           >
                             <FormControl>
                               <SelectTrigger className="bg-gray-800 border-gray-700 text-white focus:border-amber-500">
@@ -650,7 +628,6 @@ export function PlayerRankForm() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="bg-gray-800 border-gray-700 text-white">
-                              <SelectItem value="">Not Rated</SelectItem>
                               {tiers.map((tier) => (
                                 <SelectItem key={tier.value} value={tier.value}>
                                   {tier.label}
@@ -662,6 +639,15 @@ export function PlayerRankForm() {
                         </FormItem>
                       )}
                     />
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 px-2 text-red-500 hover:text-red-400"
+                      onClick={() => remove(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 );
               })}
