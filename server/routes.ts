@@ -1,6 +1,7 @@
 import express, { type Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./auth";
 import { 
   insertPlayerSchema, 
   insertTierSchema, 
@@ -10,6 +11,9 @@ import {
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication
+  setupAuth(app);
+  
   // API Routes
   const apiRouter = express.Router();
   
@@ -67,8 +71,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Create or update player by Roblox ID
-  apiRouter.post("/players", async (req: Request, res: Response) => {
+  // Create or update player by Roblox ID (admin only)
+  apiRouter.post("/players", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const playerData = insertPlayerSchema.parse(req.body);
       
@@ -93,8 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Create or update a tier for a player
-  apiRouter.post("/tiers", async (req: Request, res: Response) => {
+  // Create or update a tier for a player (admin only)
+  apiRouter.post("/tiers", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const tierData = insertTierSchema.parse(req.body);
       
@@ -116,33 +120,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Admin authentication
-  apiRouter.post("/auth/login", async (req: Request, res: Response) => {
-    try {
-      const credentials = loginSchema.parse(req.body);
-      
-      const admin = await storage.getAdminByUsername(credentials.username);
-      
-      if (!admin || admin.password !== credentials.password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      // In a real app, you would set a session or token here
-      return res.json({ 
-        success: true, 
-        admin: { id: admin.id, username: admin.username }
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid login data", errors: error.errors });
-      }
-      console.error("Error during login:", error);
-      return res.status(500).json({ message: "Login failed" });
-    }
-  });
+  // Replace with authentication from auth.ts
+  // This will be handled by passport
   
-  // Delete a player by ID
-  apiRouter.delete("/players/:id", async (req: Request, res: Response) => {
+  // Delete a player by ID (admin only)
+  apiRouter.delete("/players/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -170,8 +152,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Update a player by ID
-  apiRouter.put("/players/:id", async (req: Request, res: Response) => {
+  // Update a player by ID (admin only)
+  apiRouter.put("/players/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -199,8 +181,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Update site settings (logo URL)
-  apiRouter.post("/settings", async (req: Request, res: Response) => {
+  // Update site settings (logo URL) (admin only)
+  apiRouter.post("/settings", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { logoUrl } = req.body;
       

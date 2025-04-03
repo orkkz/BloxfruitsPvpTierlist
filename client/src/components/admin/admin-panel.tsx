@@ -10,20 +10,20 @@ import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserPlus, Users, Settings, LogOut } from "lucide-react";
 
 export function AdminPanel() {
-  const { isAuthenticated, admin, isLoading, login, logout } = useAuth();
+  const { user, isLoading, loginMutation, logoutMutation } = useAuth();
   const [activeTab, setActiveTab] = useState("add-player");
 
   return (
     <Card className="bg-[#131722] border-gray-700 shadow-xl max-w-4xl mx-auto">
       <CardContent className="pt-6">
-        {isAuthenticated ? (
+        {user ? (
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-white">Admin Dashboard</h2>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={logout}
+                onClick={() => logoutMutation.mutate()}
                 className="text-gray-400 hover:text-white"
               >
                 <LogOut className="h-4 w-4 mr-1" />
@@ -61,7 +61,7 @@ export function AdminPanel() {
             </Tabs>
           </div>
         ) : (
-          <AdminLogin onLogin={login} isLoading={isLoading} />
+          <AdminLogin onLogin={(credentials) => loginMutation.mutate(credentials)} isLoading={isLoading || loginMutation.isPending} />
         )}
       </CardContent>
     </Card>

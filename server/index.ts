@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { testConnection, initDatabase, seedDefaultAdmin } from "./mysql-db";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,20 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize MySQL database
+  try {
+    const connected = await testConnection();
+    if (connected) {
+      log("Successfully connected to MySQL database");
+      await initDatabase();
+      await seedDefaultAdmin();
+    } else {
+      log("Failed to connect to MySQL database, check connection settings");
+    }
+  } catch (error) {
+    log(`Error initializing database: ${error}`);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
