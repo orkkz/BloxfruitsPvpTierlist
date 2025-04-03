@@ -57,8 +57,8 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
         <span className={`text-2xl font-bold ${medalColor}`}>{rank}</span>
       </td>
       <td>
-        <div className="flex flex-col items-center">
-          <div className={`w-16 h-16 rounded-lg overflow-hidden mb-2 border-2 ${borderColor}`}>
+        <div className="flex items-center">
+          <div className={`w-14 h-14 rounded-lg overflow-hidden mr-3 border-2 ${borderColor}`}>
             <img 
               src={player.avatarUrl} 
               alt={`${player.username}'s avatar`}
@@ -70,11 +70,14 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
               }}
             />
           </div>
-          <div className="text-center">
-            <div className="font-semibold text-white">{player.username || "Unknown Player"}</div>
-            <div className="flex items-center justify-center">
+          <div>
+            {/* Display name in title font */}
+            <div className="text-lg font-bold text-white">{player.username || "Unknown Player"}</div>
+            {/* Username in subtitle font */}
+            <div className="text-sm text-gray-400 -mt-0.5 mb-0.5">@{player.username || "unknown"}</div>
+            <div className="flex items-center">
               <Award className={`h-4 w-4 mr-1.5 ${medalColor}`} />
-              <span className="text-sm text-gray-300">
+              <span className="text-xs text-gray-300">
                 {formatCombatTitle(player.combatTitle, player.points)}
               </span>
             </div>
