@@ -29,6 +29,9 @@ const playerRankSchema = z.object({
   robloxId: z.string().min(1, "Roblox ID is required"),
   category: z.string().min(1, "Category is required"),
   tier: z.string().min(1, "Tier is required"),
+  region: z.string().min(1, "Region is required"),
+  combatTitle: z.string().min(1, "Combat Title is required"),
+  points: z.string().transform(val => parseInt(val, 10)).optional(),
 });
 
 type FormValues = z.infer<typeof playerRankSchema>;
@@ -37,6 +40,7 @@ interface RecentUpdate {
   playerName: string;
   category: string;
   tier: string;
+  region: string;
   timestamp: Date;
 }
 
@@ -51,16 +55,26 @@ export function PlayerRankForm() {
       robloxId: "",
       category: "melee",
       tier: "SS",
+      region: "Global",
+      combatTitle: "Combat Master",
+      points: "300",
     },
   });
 
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
+      // Convert points from string to number
+      const pointsValue = values.points ? parseInt(values.points, 10) : 300;
+      
+      // Get the Roblox user data using our API
       const result = await addPlayerWithTier({
         robloxId: values.robloxId,
         category: values.category,
         tier: values.tier as TierGrade,
+        region: values.region,
+        combatTitle: values.combatTitle,
+        points: pointsValue,
       });
       
       toast({
@@ -74,6 +88,7 @@ export function PlayerRankForm() {
           playerName: result.player.username,
           category: values.category,
           tier: values.tier,
+          region: values.region,
           timestamp: new Date(),
         },
         ...prev.slice(0, 9), // Keep only the 10 most recent updates
@@ -84,6 +99,9 @@ export function PlayerRankForm() {
         robloxId: "",
         category: "melee",
         tier: "SS",
+        region: "Global",
+        combatTitle: "Combat Master",
+        points: "300",
       });
       
       // Invalidate queries to refresh data
@@ -106,6 +124,23 @@ export function PlayerRankForm() {
     { value: "fruit", label: "Fruit" },
     { value: "sword", label: "Sword" },
     { value: "gun", label: "Gun" },
+  ];
+
+  const regions = [
+    { value: "Global", label: "Global" },
+    { value: "NA", label: "North America" },
+    { value: "EU", label: "Europe" },
+    { value: "Asia", label: "Asia" },
+    { value: "SA", label: "South America" },
+    { value: "OCE", label: "Oceania" },
+  ];
+
+  const combatTitles = [
+    { value: "Combat Master", label: "Combat Master" },
+    { value: "Grand Master", label: "Grand Master" },
+    { value: "Legendary Pirate", label: "Legendary Pirate" },
+    { value: "Rising Star", label: "Rising Star" },
+    { value: "Rookie", label: "Rookie" },
   ];
 
   const tiers = [
@@ -156,6 +191,86 @@ export function PlayerRankForm() {
                     {...field}
                     className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
                     placeholder="Enter Roblox ID"
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-300">Region</FormLabel>
+                  <Select
+                    disabled={isSubmitting}
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white focus:border-amber-500">
+                        <SelectValue placeholder="Select region" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                      {regions.map((region) => (
+                        <SelectItem key={region.value} value={region.value}>
+                          {region.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="combatTitle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-300">Combat Title</FormLabel>
+                  <Select
+                    disabled={isSubmitting}
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white focus:border-amber-500">
+                        <SelectValue placeholder="Select title" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                      {combatTitles.map((title) => (
+                        <SelectItem key={title.value} value={title.value}>
+                          {title.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <FormField
+            control={form.control}
+            name="points"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-gray-300">Combat Points</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="number"
+                    className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                    placeholder="Enter points (e.g., 300)"
                     disabled={isSubmitting}
                   />
                 </FormControl>
@@ -250,7 +365,7 @@ export function PlayerRankForm() {
                 key={index}
                 className="text-gray-400 py-1 border-b border-gray-700 last:border-b-0"
               >
-                <span className="text-white">{update.playerName}</span> - Updated{" "}
+                <span className="text-white">{update.playerName}</span> ({update.region}) - Updated{" "}
                 <span className={getCategoryColor(update.category)}>
                   {update.category.charAt(0).toUpperCase() + update.category.slice(1)}
                 </span>{" "}

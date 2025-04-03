@@ -72,9 +72,9 @@ export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: 
       robloxId: data.robloxId,
       username: robloxUser.username,
       avatarUrl: robloxUser.avatarUrl,
-      combatTitle: "Combat Master",
-      points: 300, // Default points
-      region: "NA" // Default region
+      combatTitle: data.combatTitle || "Combat Master",
+      points: data.points || 300,
+      region: data.region || "Global"
     });
     
     if (!playerRes.ok) {

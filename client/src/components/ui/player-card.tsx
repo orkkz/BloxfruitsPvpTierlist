@@ -29,6 +29,14 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
   const medalColor = getMedalColor(rank);
   const borderColor = getBorderColor(rank);
   
+  // Category color mapping
+  const categoryColors = {
+    melee: "text-orange-600",
+    fruit: "text-green-500",
+    sword: "text-yellow-400",
+    gun: "text-cyan-500"
+  };
+  
   return (
     <tr className="player-card border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
       <td className="py-4">
@@ -44,12 +52,12 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
               onError={(e) => {
                 // Fallback for broken images
                 const target = e.target as HTMLImageElement;
-                target.src = "https://tr.rbxcdn.com/53eb9b17fe1432a809c73a13889b5006/150/150/Image/Png";
+                target.src = "https://tr.rbxcdn.com/53eb9b17fe1432a809c73a13889b5006/420/420/Image/Png";
               }}
             />
           </div>
           <div>
-            <div className="font-semibold text-white">{player.username}</div>
+            <div className="font-semibold text-white">{player.username || "Unknown Player"}</div>
             <div className="flex items-center">
               <Award className={`h-4 w-4 mr-1.5 ${medalColor}`} />
               <span className="text-sm text-gray-300">
@@ -61,13 +69,18 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
       </td>
       <td className="text-right md:text-center">
         <span className={`px-2 py-1 rounded text-xs font-medium ${regionColors[player.region] || "bg-gray-600"}`}>
-          {player.region}
+          {player.region || "Unknown"}
         </span>
       </td>
       <td>
         <div className="flex flex-wrap justify-end gap-1 md:gap-2">
           {orderedTiers.map((tier, index) => (
-            <TierBadge key={index} tier={tier?.tier as TierGrade} />
+            <div key={index} className="flex flex-col items-center">
+              <span className={`text-xs mb-1 ${categoryColors[tier?.category as keyof typeof categoryColors] || "text-gray-400"}`}>
+                {tier?.category ? tier.category.charAt(0).toUpperCase() + tier.category.slice(1) : "Unknown"}
+              </span>
+              <TierBadge tier={tier?.tier as TierGrade} />
+            </div>
           ))}
         </div>
       </td>

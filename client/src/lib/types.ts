@@ -58,6 +58,9 @@ export interface NewPlayerData {
   robloxId: string;
   category: string;
   tier: TierGrade;
+  region?: string;
+  combatTitle?: string;
+  points?: number;
 }
 
 export interface CategoryOption {
