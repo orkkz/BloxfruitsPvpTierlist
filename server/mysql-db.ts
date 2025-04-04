@@ -1,21 +1,22 @@
-import mysql from 'mysql2/promise';
-import { drizzle } from 'drizzle-orm/mysql2';
-import { players, tiers, admins } from '../shared/schema';
-import { eq, and } from 'drizzle-orm';
+import mysql from "mysql2/promise";
+import { drizzle } from "drizzle-orm/mysql2";
+import { players, tiers, admins } from "../shared/schema";
+import { eq, and } from "drizzle-orm";
 
 // MySQL Connection Pool
 export const pool = mysql.createPool({
-  host: 'skinrestorer-stolensmp.i.aivencloud.com', 
+  host: "none",
   port: 18752,
-  user: 'avnadmin',
-  password: 'AVNS_wdLtc3-AnM3vNZs_tf8',
-  database: 'bf',
+  user: "admin",
+  password: "admin",
+  database: "bloxfruits",
   waitForConnections: true,
   connectionLimit: 10,
   maxIdle: 10,
   idleTimeout: 60000,
-  queueLimit: 0
+  queueLimit: 0,
 });
+
 
 export const db = drizzle(pool);
 
@@ -23,11 +24,11 @@ export const db = drizzle(pool);
 export async function testConnection() {
   try {
     const connection = await pool.getConnection();
-    console.log('Successfully connected to MySQL database');
+    console.log("Successfully connected to MySQL database");
     connection.release();
     return true;
   } catch (error) {
-    console.error('Error connecting to MySQL:', error);
+    console.error("Error connecting to MySQL:", error);
     return false;
   }
 }
@@ -72,10 +73,10 @@ export async function initDatabase() {
       )
     `);
 
-    console.log('Database tables created successfully');
+    console.log("Database tables created successfully");
     return true;
   } catch (error) {
-    console.error('Error initializing database:', error);
+    console.error("Error initializing database:", error);
     return false;
   }
 }
@@ -83,26 +84,31 @@ export async function initDatabase() {
 // Check if admin exists, if not create default admin
 export async function seedDefaultAdmin() {
   try {
-    const [admins] = await pool.execute('SELECT * FROM admins WHERE username = ?', ['lucifer']);
-    
+    const [admins] = await pool.execute(
+      "SELECT * FROM admins WHERE username = ?",
+      ["lucifer"],
+    );
+
     if (Array.isArray(admins) && admins.length === 0) {
       // Import the hashPassword function from password-utils.ts
-      const { hashPassword } = require('./password-utils');
-      
+      const { hashPassword } = require("./password-utils");
+
       // Hash the password
-      const hashedPassword = await hashPassword('mephist');
-      
+      const hashedPassword = await hashPassword("mephist");
+
       // Insert default admin (username: lucifer, password: hashed)
       await pool.execute(
-        'INSERT INTO admins (username, password) VALUES (?, ?)',
-        ['lucifer', hashedPassword]
+        "INSERT INTO admins (username, password) VALUES (?, ?)",
+        ["lucifer", hashedPassword],
       );
-      console.log('Default admin created with username: lucifer and password: mephist');
+      console.log(
+        "Default admin created with username: lucifer and password: mephist",
+      );
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error seeding default admin:', error);
+    console.error("Error seeding default admin:", error);
     return false;
   }
 }

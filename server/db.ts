@@ -2,10 +2,10 @@ import mysql from 'mysql2/promise';
 
 // MySQL Connection Pool
 export const pool = mysql.createPool({
-  host: 'skinrestorer-stolensmp.i.aivencloud.com', 
+  host: 'none', 
   port: 18752, // Default MySQL port
-  user: 'avnadmin',
-  password: 'AVNS_wdLtc3-AnM3vNZs_tf8',
+  user: 'none',
+  password: 'none',
   database: 'bf',
   waitForConnections: true,
   connectionLimit: 10,
