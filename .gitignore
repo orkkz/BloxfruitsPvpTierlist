@@ -4,3 +4,7 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+# Database files
+data/*.db
+*.db
+cookies.txt
