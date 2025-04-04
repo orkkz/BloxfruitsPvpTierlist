@@ -54,10 +54,24 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
     bounty: <DollarSign className="h-4 w-4" />
   };
   
+  // Function to format rank as 1st, 2nd, 3rd, etc. with proper suffix
+  const formatRank = (rank: number): string => {
+    if (rank % 100 >= 11 && rank % 100 <= 13) {
+      return `${rank}th`; // 11th, 12th, 13th
+    }
+    
+    switch (rank % 10) {
+      case 1: return `${rank}st`;
+      case 2: return `${rank}nd`;
+      case 3: return `${rank}rd`;
+      default: return `${rank}th`;
+    }
+  };
+
   return (
     <tr className="player-card border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
       <td className="py-4">
-        <span className={`text-2xl font-bold ${medalColor}`}>{rank}</span>
+        <span className={`text-2xl font-bold ${medalColor}`}>{formatRank(rank)}</span>
       </td>
       <td>
         <div className="flex items-center">

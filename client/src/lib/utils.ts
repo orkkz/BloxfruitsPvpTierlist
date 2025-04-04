@@ -76,23 +76,24 @@ export function sortPlayersByPoints(players: PlayerWithTiers[]): PlayerWithTiers
 
 /**
  * Gets the rank of a player based on their position in the list
+ * Ranks are determined strictly by combat points
  */
 export function getPlayerRank(player: PlayerWithTiers, players: PlayerWithTiers[]): number {
+  // Always sort by points in descending order
   const sortedPlayers = sortPlayersByPoints(players);
   const playerIndex = sortedPlayers.findIndex(p => p.player.id === player.player.id);
   
   if (playerIndex === -1) return 0;
   
-  // Handle ties (same points)
-  const currentPoints = player.player.points;
-  let samePointsIndex = 0;
+  // Players with the same points should have the same rank
+  // For example, if two players have the highest points, they both get rank 1
+  const playerPoints = player.player.points;
   
-  for (let i = 0; i < playerIndex; i++) {
-    if (sortedPlayers[i].player.points === currentPoints) {
-      samePointsIndex = i;
-      break;
-    }
-  }
+  // Find how many players have MORE points than this player
+  const higherRankedPlayers = sortedPlayers.filter(p => 
+    p.player.points > playerPoints
+  ).length;
   
-  return playerIndex === samePointsIndex ? playerIndex + 1 : samePointsIndex + 1;
+  // The rank is position in the sorted list of unique point values + 1
+  return higherRankedPlayers + 1;
 }

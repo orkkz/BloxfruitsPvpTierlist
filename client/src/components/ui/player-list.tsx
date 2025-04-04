@@ -28,7 +28,7 @@ export function PlayerList({ players, isLoading, category }: PlayerListProps) {
       <table className="w-full">
         <thead>
           <tr className="text-left text-gray-400 border-b border-gray-800">
-            <th className="pb-4 font-medium w-16">#</th>
+            <th className="pb-4 font-medium w-16">RANK</th>
             <th className="pb-4 font-medium">PLAYER</th>
             <th className="pb-4 font-medium text-right md:text-center">REGION</th>
             <th className="pb-4 font-medium text-right">TIERS</th>
@@ -57,7 +57,7 @@ function PlayerListSkeleton() {
       <table className="w-full">
         <thead>
           <tr className="text-left text-gray-400 border-b border-gray-800">
-            <th className="pb-4 font-medium w-16">#</th>
+            <th className="pb-4 font-medium w-16">RANK</th>
             <th className="pb-4 font-medium">PLAYER</th>
             <th className="pb-4 font-medium text-right md:text-center">REGION</th>
             <th className="pb-4 font-medium text-right">TIERS</th>
