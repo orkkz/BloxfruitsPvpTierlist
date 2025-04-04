@@ -45,6 +45,18 @@ The application supports both SQLite and PostgreSQL databases:
 - SQLite is used by default with data stored in `./data/bloxfruits_pvp.db`
 - PostgreSQL can be configured through the admin interface
 
-## License
+## Netlify Deployment
 
-MIT
+This application can be deployed to Netlify using the following steps:
+
+1. Connect your GitHub repository to Netlify
+   - Build command: `node netlify-build.js`
+   - Publish directory: `dist`
+   - Functions directory: `netlify/functions`
+3. Set up the following environment variables in Netlify:
+   - `NODE_ENV`: `production`
+   - `SESSION_SECRET`: A secure, random string for session encryption
+   - Any other environment variables required by your application
+
+The application uses the serverless-http package to run the Express API as a Netlify Function.
+The frontend will automatically update API requests to use the Netlify Functions path.
