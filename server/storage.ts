@@ -5,7 +5,6 @@ import {
   dbSettings, DbSetting, InsertDbSetting,
   PlayerWithTiers 
 } from "../shared/schema";
-import { db as mysqlDb, pool as mysqlPool, initDatabase as initMysqlDb, seedDefaultAdmin as seedMysqlAdmin, testConnection as testMysqlConnection } from "./mysql-db";
 import { db as sqliteDb, initDatabase as initSqliteDb, seedDefaultAdmin as seedSqliteAdmin, testConnection as testSqliteConnection } from "./sqlite-db";
 import { eq, and, like, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -13,7 +12,6 @@ import { z } from "zod";
 // Import session-related types and implementations
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import connectPgSimple from "connect-pg-simple";
 
 // Storage interface for player data and tier management
 export interface IStorage {
@@ -1267,7 +1265,7 @@ export class MemStorage implements IStorage {
 // Create an async function to initialize storage
 export async function initializeStorage(): Promise<IStorage> {
   try {
-    // Try SQLite first since it's more efficient for this use case
+    // Only use SQLite for storage
     console.log("Attempting to initialize SQLite storage...");
     const sqliteConnected = await testSqliteConnection();
     if (!sqliteConnected) {
@@ -1279,23 +1277,8 @@ export async function initializeStorage(): Promise<IStorage> {
     return new SQLiteStorage();
   } catch (sqliteError) {
     console.warn("Failed to initialize SQLite storage:", sqliteError);
-    
-    try {
-      // Fallback to PostgreSQL if SQLite fails
-      console.log("Falling back to PostgreSQL storage...");
-      const pgConnected = await testMysqlConnection();
-      if (!pgConnected) {
-        throw new Error("PostgreSQL connection test failed");
-      }
-      
-      // If connection is good, use PostgreSQL storage
-      console.log("Using PostgreSQL storage");
-      return new MySQLStorage();
-    } catch (pgError) {
-      console.warn("Failed to initialize PostgreSQL storage:", pgError);
-      console.log("Falling back to in-memory storage");
-      return new MemStorage();
-    }
+    console.log("Falling back to in-memory storage");
+    return new MemStorage();
   }
 }
 

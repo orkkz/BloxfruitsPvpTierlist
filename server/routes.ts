@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { sendDiscordWebhook, queueWebhookNotification } from "./webhook-utils.js";
 import { z } from "zod";
-import { initDatabase, seedDefaultAdmin } from "./pg-db";
+import { initDatabase, seedDefaultAdmin } from "./sqlite-db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
