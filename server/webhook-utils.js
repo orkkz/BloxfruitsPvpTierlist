@@ -35,7 +35,7 @@ export async function sendDiscordWebhook(webhookUrl, data) {
     // Ensure data.tiers is an array
     const tiers = Array.isArray(data.tiers) ? data.tiers : [];
     
-    // Create embed fields for each tier or a default field if no tiers
+    // Create embed fields for each tier - only show tiers that exist
     let fields = [];
     if (tiers.length > 0) {
       fields = tiers.map(tier => {
@@ -45,15 +45,12 @@ export async function sendDiscordWebhook(webhookUrl, data) {
           inline: true
         };
       });
-    } else {
-      // If no tiers, add a placeholder field
-      fields = [
-        {
-          name: "Status",
-          value: "Player added to tier list (no ranks yet)",
-          inline: false
-        }
-      ];
+    }
+    
+    // If no tiers are available, don't send a webhook at all
+    if (fields.length === 0) {
+      console.log('No tiers to report in webhook, skipping');
+      return false;
     }
     
     // Get tier color based on first tier (or default to gray)

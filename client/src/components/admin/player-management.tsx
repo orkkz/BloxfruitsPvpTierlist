@@ -17,6 +17,20 @@ export function PlayerManagement() {
   const [editFormData, setEditFormData] = useState<Partial<Player>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Combat title mapping
+  const COMBAT_TITLE_MAPPING: Record<string, string> = {
+    "Rookie": "Pirate",
+    "Rising Star": "Sea Prodigy",
+    "Legendary Pirate": "Warlord of the Sea",
+    "Grand Master": "Emperor of the Sea",
+    "Combat Master": "King of the Pirates"
+  };
+  
+  // Function to convert combat titles to their mapped versions
+  const getMappedCombatTitle = (title: string): string => {
+    return COMBAT_TITLE_MAPPING[title] || title;
+  };
 
   // Fetch players
   const { data: playersData, isLoading, isError, refetch } = useQuery({
@@ -154,6 +168,12 @@ export function PlayerManagement() {
                       <h4 className="font-medium text-white">{player.username}</h4>
                       <p className="text-sm text-gray-400">
                         Region: {player.region || 'Unknown'} • Points: {player.points || 0}
+                        {player.combatTitle && (
+                          <>
+                            {" • "}
+                            Combat Title: {COMBAT_TITLE_MAPPING[player.combatTitle] || player.combatTitle}
+                          </>
+                        )}
                       </p>
                       <p className="text-xs text-gray-500">RobloxID: {player.robloxId}</p>
                     </div>
@@ -222,7 +242,14 @@ export function PlayerManagement() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="combatTitle">Combat Title</Label>
+                  <Label htmlFor="combatTitle">
+                    Combat Title 
+                    {editFormData.combatTitle && COMBAT_TITLE_MAPPING[editFormData.combatTitle] && (
+                      <span className="ml-1 text-xs text-gray-400">
+                        (Displays as: {COMBAT_TITLE_MAPPING[editFormData.combatTitle]})
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="combatTitle"
                     name="combatTitle"
@@ -230,6 +257,10 @@ export function PlayerManagement() {
                     onChange={handleEditFormChange}
                     className="bg-gray-800 border-gray-700"
                   />
+                  <div className="text-xs text-gray-400 mt-1">
+                    Use "Rookie", "Rising Star", "Legendary Pirate", "Grand Master", or "Combat Master" 
+                    for automatic display conversion.
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="points">Points</Label>

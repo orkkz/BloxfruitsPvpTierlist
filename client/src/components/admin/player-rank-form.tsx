@@ -33,6 +33,15 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 
+// Combat title mappings (old to new)
+const COMBAT_TITLE_MAPPING = {
+  "Rookie": "Pirate",
+  "Rising Star": "Sea Prodigy",
+  "Legendary Pirate": "Warlord of the Sea", 
+  "Grand Master": "Emperor of the Sea",
+  "Combat Master": "King of the Pirates"
+};
+
 const playerRankSchema = z.object({
   robloxId: z.string().min(1, "Roblox ID is required"),
   category: z.string().min(1, "Category is required"),
@@ -413,7 +422,12 @@ export function PlayerRankForm() {
                     <SelectContent className="bg-gray-800 border-gray-700 text-white">
                       {combatTitles.map((title) => (
                         <SelectItem key={title.value} value={title.value}>
-                          {title.label}
+                          {title.label} 
+                          {COMBAT_TITLE_MAPPING[title.value] && (
+                            <span className="ml-1 text-xs text-gray-400">
+                              (Displays as: {COMBAT_TITLE_MAPPING[title.value]})
+                            </span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
