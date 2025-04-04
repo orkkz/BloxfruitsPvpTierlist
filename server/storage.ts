@@ -599,7 +599,7 @@ export async function initializeStorage(): Promise<IStorage> {
     
     // If connection is good, use PostgreSQL storage
     console.log("Using PostgreSQL storage");
-    return new PostgreSQLStorage();
+    return new MySQLStorage();
   } catch (error) {
     console.warn("Failed to initialize PostgreSQL storage:", error);
     console.log("Falling back to in-memory storage");

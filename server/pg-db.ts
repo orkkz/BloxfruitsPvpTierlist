@@ -8,7 +8,14 @@ const { Pool } = pg;
 
 // Create a PostgreSQL connection pool
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: 'luckperms-stolensmp.i.aivencloud.com',
+  port: 18708,
+  user: 'avnadmin',
+  password: 'AVNS_0AM3U5wjshtzuJllI1-',
+  database: 'defaultdb',
+  ssl: {
+    rejectUnauthorized: false // Required for some cloud PostgreSQL servers
+  }
 });
 
 export const db = drizzle(pool);

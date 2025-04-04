@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { testConnection, initDatabase, seedDefaultAdmin } from "./mysql-db";
+import { testConnection, initDatabase, seedDefaultAdmin } from "./pg-db.js";
 
 const app = express();
 app.use(express.json());
@@ -38,15 +38,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize MySQL database
+  // Initialize PostgreSQL database
   try {
     const connected = await testConnection();
     if (connected) {
-      log("Successfully connected to MySQL database");
+      log("Successfully connected to PostgreSQL database");
       await initDatabase();
       await seedDefaultAdmin();
     } else {
-      log("Failed to connect to MySQL database, check connection settings");
+      log("Failed to connect to PostgreSQL database, check connection settings");
     }
   } catch (error) {
     log(`Error initializing database: ${error}`);
