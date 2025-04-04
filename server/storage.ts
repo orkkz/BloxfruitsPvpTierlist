@@ -5,7 +5,8 @@ import {
   dbSettings, DbSetting, InsertDbSetting,
   PlayerWithTiers 
 } from "../shared/schema";
-import { db, pool, initDatabase, seedDefaultAdmin, testConnection } from "./mysql-db";
+import { db as mysqlDb, pool as mysqlPool, initDatabase as initMysqlDb, seedDefaultAdmin as seedMysqlAdmin, testConnection as testMysqlConnection } from "./mysql-db";
+import { db as sqliteDb, initDatabase as initSqliteDb, seedDefaultAdmin as seedSqliteAdmin, testConnection as testSqliteConnection } from "./sqlite-db";
 import { eq, and, like, desc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -604,6 +605,408 @@ export class MySQLStorage implements IStorage {
 }
 
 // In-memory storage implementation (kept for reference)
+// SQLite storage implementation
+export class SQLiteStorage implements IStorage {
+  private initialized: boolean = false;
+  public sessionStore: session.Store;
+  
+  constructor() {
+    // Create an in-memory session store for SQLite
+    const MemoryStore = createMemoryStore(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
+    
+    // We'll initialize asynchronously to avoid blocking
+    this.initialize().catch(error => {
+      console.error("Error initializing SQLite database:", error);
+    });
+  }
+
+  private async initialize() {
+    try {
+      // Test the connection first
+      const connected = await testSqliteConnection();
+      if (!connected) {
+        throw new Error("Unable to connect to SQLite database");
+      }
+      
+      await initSqliteDb();
+      await seedSqliteAdmin();
+      this.initialized = true;
+      console.log("SQLite database initialized successfully");
+    } catch (error) {
+      console.error("Error initializing SQLite database:", error);
+      throw error; // Re-throw to trigger fallback
+    }
+  }
+  
+  private async ensureInitialized() {
+    if (!this.initialized) {
+      // If not yet initialized, wait a bit and check again
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!this.initialized) {
+        throw new Error("SQLite database not initialized");
+      }
+    }
+  }
+
+  // Player methods
+  async getPlayers(): Promise<Player[]> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(players);
+    return result;
+  }
+
+  async getPlayerById(id: number): Promise<Player | undefined> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(players).where(eq(players.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getPlayerByRobloxId(robloxId: string): Promise<Player | undefined> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(players).where(eq(players.robloxId, robloxId));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async createPlayer(playerData: InsertPlayer): Promise<Player> {
+    await this.ensureInitialized();
+    
+    // Prepare player data with defaults
+    const data = {
+      robloxId: playerData.robloxId,
+      username: playerData.username,
+      avatarUrl: playerData.avatarUrl,
+      combatTitle: playerData.combatTitle || "Rookie",
+      points: playerData.points || 0,
+      bounty: playerData.bounty || "0",
+      region: playerData.region || "Global"
+    };
+    
+    // Insert the player
+    const result = await sqliteDb.insert(players).values(data).returning();
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to create player");
+    }
+    
+    return result[0];
+  }
+
+  async updatePlayer(id: number, playerData: Partial<InsertPlayer>): Promise<Player | undefined> {
+    await this.ensureInitialized();
+    
+    // Create an object with the fields to update
+    const updateData: Record<string, any> = {};
+    
+    if (playerData.robloxId !== undefined) updateData.robloxId = playerData.robloxId;
+    if (playerData.username !== undefined) updateData.username = playerData.username;
+    if (playerData.avatarUrl !== undefined) updateData.avatarUrl = playerData.avatarUrl;
+    if (playerData.combatTitle !== undefined) updateData.combatTitle = playerData.combatTitle;
+    if (playerData.points !== undefined) updateData.points = playerData.points;
+    if (playerData.region !== undefined) updateData.region = playerData.region;
+    if (playerData.bounty !== undefined) updateData.bounty = playerData.bounty;
+    
+    if (Object.keys(updateData).length === 0) {
+      return await this.getPlayerById(id); // Nothing to update
+    }
+    
+    // Update the player
+    await sqliteDb.update(players)
+      .set(updateData)
+      .where(eq(players.id, id));
+    
+    // Fetch the updated player
+    return await this.getPlayerById(id);
+  }
+
+  async deletePlayer(id: number): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.delete(players).where(eq(players.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async searchPlayers(query: string): Promise<Player[]> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(players).where(like(players.username, `%${query}%`));
+    return result;
+  }
+
+  // Tier methods
+  async getTiers(): Promise<Tier[]> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(tiers);
+    return result;
+  }
+
+  async getTiersByPlayerId(playerId: number): Promise<Tier[]> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(tiers).where(eq(tiers.playerId, playerId));
+    return result;
+  }
+
+  async getTiersByCategory(category: string): Promise<Tier[]> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(tiers).where(eq(tiers.category, category));
+    return result;
+  }
+
+  async getTierByPlayerAndCategory(playerId: number, category: string): Promise<Tier | undefined> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(tiers).where(
+      and(
+        eq(tiers.playerId, playerId),
+        eq(tiers.category, category)
+      )
+    );
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async createTier(tierData: InsertTier): Promise<Tier> {
+    await this.ensureInitialized();
+    
+    // Check if tier exists for this player and category
+    const existingTier = await this.getTierByPlayerAndCategory(
+      tierData.playerId,
+      tierData.category
+    );
+
+    if (existingTier) {
+      // Update existing tier
+      return await this.updateTier(
+        tierData.playerId,
+        tierData.category,
+        { tier: tierData.tier }
+      ) as Tier;
+    }
+
+    // Create new tier
+    const result = await sqliteDb.insert(tiers).values(tierData).returning();
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to create tier");
+    }
+    
+    return result[0];
+  }
+
+  async updateTier(playerId: number, category: string, tierData: Partial<InsertTier>): Promise<Tier | undefined> {
+    await this.ensureInitialized();
+    
+    // Create an object with the fields to update
+    const updateData: Record<string, any> = {};
+    
+    if (tierData.tier !== undefined) updateData.tier = tierData.tier;
+    if (tierData.playerId !== undefined) updateData.playerId = tierData.playerId;
+    if (tierData.category !== undefined) updateData.category = tierData.category;
+    
+    // Always update the updated_at field in SQLite
+    updateData.updatedAt = new Date();
+    
+    if (Object.keys(updateData).length === 0) {
+      return await this.getTierByPlayerAndCategory(playerId, category);
+    }
+    
+    // Update the tier
+    await sqliteDb.update(tiers)
+      .set(updateData)
+      .where(
+        and(
+          eq(tiers.playerId, playerId),
+          eq(tiers.category, category)
+        )
+      );
+    
+    // Fetch the updated tier
+    return await this.getTierByPlayerAndCategory(playerId, category);
+  }
+
+  async deleteTier(id: number): Promise<boolean> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.delete(tiers).where(eq(tiers.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Admin methods
+  async getAdminById(id: number): Promise<Admin | undefined> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(admins).where(eq(admins.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAdminByUsername(username: string): Promise<Admin | undefined> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(admins).where(eq(admins.username, username));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getAdmins(): Promise<Admin[]> {
+    await this.ensureInitialized();
+    const result = await sqliteDb.select().from(admins);
+    return result;
+  }
+
+  async createAdmin(adminData: InsertAdmin): Promise<Admin> {
+    await this.ensureInitialized();
+    
+    // Insert the admin
+    const result = await sqliteDb.insert(admins).values(adminData).returning();
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to create admin");
+    }
+    
+    return result[0];
+  }
+
+  // Combined methods
+  async getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]> {
+    await this.ensureInitialized();
+    const allPlayers = await this.getPlayers();
+    const result: PlayerWithTiers[] = [];
+
+    for (const player of allPlayers) {
+      let playerTiers = await this.getTiersByPlayerId(player.id);
+      
+      // Filter by category if provided
+      if (category && category !== "overall") {
+        playerTiers = playerTiers.filter(tier => tier.category === category);
+      }
+
+      // Only include players that have at least one tier in the requested category
+      if (!category || playerTiers.length > 0) {
+        result.push({
+          player,
+          tiers: playerTiers
+        });
+      }
+    }
+
+    // Sort by points (highest first)
+    result.sort((a, b) => {
+      const pointsA = a.player.points || 0;
+      const pointsB = b.player.points || 0;
+      return pointsB - pointsA;
+    });
+    
+    return result;
+  }
+
+  // Database settings methods
+  async getDbSettings(): Promise<DbSetting[]> {
+    await this.ensureInitialized();
+    try {
+      const result = await sqliteDb.select().from(dbSettings).orderBy(desc(dbSettings.updatedAt));
+      return result;
+    } catch (error) {
+      console.error("Error fetching database settings:", error);
+      return [];
+    }
+  }
+  
+  async getActiveDbSetting(): Promise<DbSetting | undefined> {
+    await this.ensureInitialized();
+    try {
+      const result = await sqliteDb.select().from(dbSettings).where(eq(dbSettings.isActive, 1)).limit(1);
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error("Error fetching active database setting:", error);
+      return undefined;
+    }
+  }
+  
+  async createDbSetting(settingData: InsertDbSetting): Promise<DbSetting> {
+    await this.ensureInitialized();
+    try {
+      // If this setting is active, deactivate all others first
+      if (settingData.isActive) {
+        await sqliteDb.update(dbSettings).set({ isActive: 0 });
+      }
+      
+      // Insert the new database setting
+      const result = await sqliteDb.insert(dbSettings).values({
+        ...settingData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      
+      if (!result || result.length === 0) {
+        throw new Error("Failed to create database setting");
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error creating database setting:", error);
+      throw error;
+    }
+  }
+  
+  async updateDbSetting(id: number, settingData: Partial<InsertDbSetting>): Promise<DbSetting | undefined> {
+    await this.ensureInitialized();
+    try {
+      // Create an object with the fields to update
+      const updateData: Record<string, any> = { ...settingData };
+      
+      // Always update the updated_at field
+      updateData.updatedAt = new Date();
+      
+      // If this setting is being set to active, deactivate all others first
+      if (settingData.isActive) {
+        await sqliteDb.update(dbSettings).set({ isActive: 0 });
+      }
+      
+      // Update the setting
+      await sqliteDb.update(dbSettings)
+        .set(updateData)
+        .where(eq(dbSettings.id, id));
+      
+      // Fetch the updated setting
+      const result = await sqliteDb.select().from(dbSettings).where(eq(dbSettings.id, id));
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error("Error updating database setting:", error);
+      throw error;
+    }
+  }
+  
+  async deleteDbSetting(id: number): Promise<boolean> {
+    await this.ensureInitialized();
+    try {
+      // Check if this is the active setting
+      const setting = await sqliteDb.select().from(dbSettings).where(eq(dbSettings.id, id)).limit(1);
+      if (setting.length > 0 && setting[0].isActive) {
+        throw new Error("Cannot delete the active database setting");
+      }
+      
+      // Delete the setting
+      const result = await sqliteDb.delete(dbSettings).where(eq(dbSettings.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting database setting:", error);
+      throw error;
+    }
+  }
+  
+  async setActiveDbSetting(id: number): Promise<boolean> {
+    await this.ensureInitialized();
+    try {
+      // Deactivate all settings first
+      await sqliteDb.update(dbSettings).set({ isActive: 0 });
+      
+      // Activate the specified setting
+      const result = await sqliteDb.update(dbSettings)
+        .set({ isActive: 1 })
+        .where(eq(dbSettings.id, id));
+      
+      return true;
+    } catch (error) {
+      console.error("Error setting active database setting:", error);
+      throw error;
+    }
+  }
+}
+
 export class MemStorage implements IStorage {
   private players: Map<number, Player>;
   private tiers: Map<number, Tier>;
@@ -864,19 +1267,35 @@ export class MemStorage implements IStorage {
 // Create an async function to initialize storage
 export async function initializeStorage(): Promise<IStorage> {
   try {
-    // Test the PostgreSQL connection first
-    const connected = await testConnection();
-    if (!connected) {
-      throw new Error("PostgreSQL connection test failed");
+    // Try SQLite first since it's more efficient for this use case
+    console.log("Attempting to initialize SQLite storage...");
+    const sqliteConnected = await testSqliteConnection();
+    if (!sqliteConnected) {
+      throw new Error("SQLite connection test failed");
     }
     
-    // If connection is good, use PostgreSQL storage
-    console.log("Using PostgreSQL storage");
-    return new MySQLStorage();
-  } catch (error) {
-    console.warn("Failed to initialize PostgreSQL storage:", error);
-    console.log("Falling back to in-memory storage");
-    return new MemStorage();
+    // If SQLite connection is good, use SQLite storage
+    console.log("Using SQLite storage");
+    return new SQLiteStorage();
+  } catch (sqliteError) {
+    console.warn("Failed to initialize SQLite storage:", sqliteError);
+    
+    try {
+      // Fallback to PostgreSQL if SQLite fails
+      console.log("Falling back to PostgreSQL storage...");
+      const pgConnected = await testMysqlConnection();
+      if (!pgConnected) {
+        throw new Error("PostgreSQL connection test failed");
+      }
+      
+      // If connection is good, use PostgreSQL storage
+      console.log("Using PostgreSQL storage");
+      return new MySQLStorage();
+    } catch (pgError) {
+      console.warn("Failed to initialize PostgreSQL storage:", pgError);
+      console.log("Falling back to in-memory storage");
+      return new MemStorage();
+    }
   }
 }
 

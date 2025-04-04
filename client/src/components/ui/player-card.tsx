@@ -115,9 +115,9 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
             {/* Display bounty if available */}
             {player.bounty && player.bounty !== "0" && (
               <div className="flex items-center mt-1">
-                <div className="flex items-center px-2 py-0.5 bg-red-900/30 rounded text-red-400 text-xs">
-                  <span className="font-bold">Bounty:</span>
-                  <span className="ml-1">{player.bounty}</span>
+                <div className="flex items-center px-2 py-0.5 bg-[#1a0505] border border-red-800 rounded text-red-500 text-xs">
+                  <DollarSign className="h-3 w-3 mr-0.5 text-red-500" />
+                  <span className="font-bold">{player.bounty}</span>
                 </div>
               </div>
             )}
@@ -134,8 +134,11 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
           {orderedTiers.map((tier, index) => (
             <div key={index} className="flex flex-col items-center">
               {tier?.category === "bounty" && tier?.tier ? (
-                <div className="px-2 py-1 bg-red-900/30 rounded text-red-400 text-xs font-bold">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-md border-2 bg-[#1a0505] border-red-800 text-red-500 relative">
                   {tier.tier}
+                  <div className="absolute -top-1 -left-1 bg-black rounded-full p-0.5 shadow-md z-10">
+                    <DollarSign className="h-3.5 w-3.5 text-red-500" />
+                  </div>
                 </div>
               ) : (
                 <TierBadge 

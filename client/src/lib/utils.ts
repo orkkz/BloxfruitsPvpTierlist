@@ -11,15 +11,16 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Tier colors for different tier grades
+ * Updated to match the new design in the reference image
  */
 export const tierColors: TierColors = {
-  "SS": "bg-black border-red-600 text-red-600", // Red (based on the image reference)
-  "S": "bg-black border-orange-500 text-orange-500", // Orange
-  "A": "bg-black border-amber-500 text-amber-500", // Amber (orange-yellow in image)
-  "B": "bg-black border-yellow-400 text-yellow-400", // Yellow
-  "C": "bg-black border-green-500 text-green-500", // Green
-  "D": "bg-black border-blue-500 text-blue-500", // Blue
-  "E": "bg-black border-indigo-500 text-indigo-500", // Indigo
+  "SS": "bg-[#1a0505] border-red-800 text-red-500", // Dark red with red border
+  "S": "bg-[#1e1100] border-orange-800 text-orange-500", // Dark orange
+  "A": "bg-[#1e1400] border-amber-600 text-amber-500", // Dark amber
+  "B": "bg-[#1e1804] border-yellow-600 text-yellow-400", // Dark yellow
+  "C": "bg-[#051705] border-green-800 text-green-500", // Dark green
+  "D": "bg-[#051a2e] border-blue-800 text-blue-500", // Dark blue
+  "E": "bg-[#0a051a] border-indigo-800 text-indigo-500", // Dark indigo
 };
 
 /**
