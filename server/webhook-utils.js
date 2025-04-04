@@ -4,6 +4,66 @@
 const recentWebhooks = new Map();
 const WEBHOOK_COOLDOWN_MS = 5000; // 5 seconds cooldown
 
+// Track pending webhook batches by player ID
+const pendingPlayerWebhooks = new Map();
+const WEBHOOK_BATCH_DELAY_MS = 2000; // 2 seconds to batch webhook messages
+
+/**
+ * Queue a webhook notification for batching
+ * @param {string} webhookUrl - Discord webhook URL 
+ * @param {object} data - Player and tier data
+ * @returns {Promise<void>}
+ */
+export async function queueWebhookNotification(webhookUrl, data) {
+  if (!webhookUrl) {
+    console.error('No webhook URL provided');
+    return;
+  }
+  
+  // Use player ID as the key for batching
+  const playerId = data.playerId;
+  if (!playerId) {
+    console.error('No player ID provided for webhook batching');
+    // Fall back to immediate sending if no player ID
+    return sendDiscordWebhook(webhookUrl, data);
+  }
+  
+  // Store the webhook data
+  pendingPlayerWebhooks.set(playerId, {
+    webhookUrl,
+    data: {
+      username: data.username,
+      avatarUrl: data.avatarUrl,
+      combatTitle: data.combatTitle,
+      tiers: data.tiers,
+      timestamp: Date.now()
+    },
+    timeoutId: null
+  });
+  
+  // Clear any existing timeout for this player
+  const existingTimeout = pendingPlayerWebhooks.get(playerId)?.timeoutId;
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+  }
+  
+  // Set a new timeout to send the webhook after the batch delay
+  const timeoutId = setTimeout(() => {
+    const pendingWebhook = pendingPlayerWebhooks.get(playerId);
+    if (pendingWebhook) {
+      sendDiscordWebhook(pendingWebhook.webhookUrl, pendingWebhook.data);
+      pendingPlayerWebhooks.delete(playerId);
+    }
+  }, WEBHOOK_BATCH_DELAY_MS);
+  
+  // Update the timeout ID in the map
+  const pendingWebhook = pendingPlayerWebhooks.get(playerId);
+  pendingPlayerWebhooks.set(playerId, {
+    ...pendingWebhook,
+    timeoutId
+  });
+}
+
 /**
  * Send data to a Discord webhook
  * @param {string} webhookUrl - Discord webhook URL
@@ -57,8 +117,9 @@ export async function sendDiscordWebhook(webhookUrl, data) {
       return false;
     }
     
-    // Create a unique key for this webhook based on username and tier data
-    const webhookKey = `${data.username}-${JSON.stringify(fields)}`;
+    // Create a unique key for this webhook based on username only (not tier data)
+    // This allows us to avoid duplicates while still showing tier updates
+    const webhookKey = `${data.username}`;
     
     // Check if we've sent this exact webhook recently
     const lastSent = recentWebhooks.get(webhookKey);

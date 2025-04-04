@@ -10,7 +10,7 @@ import {
   newAdminSchema,
   COMBAT_TITLE_MAPPING
 } from "@shared/schema";
-import { sendDiscordWebhook } from "./webhook-utils.js";
+import { sendDiscordWebhook, queueWebhookNotification } from "./webhook-utils.js";
 import { z } from "zod";
 import { initDatabase, seedDefaultAdmin } from "./pg-db";
 
@@ -111,8 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? await storage.getTiersByPlayerId(existingPlayer.id)
           : [];
         
-        // Send webhook with player data
-        await sendDiscordWebhook(playerData.webhookUrl, {
+        // Queue webhook notification with player data
+        await queueWebhookNotification(playerData.webhookUrl, {
+          playerId: player?.id,
           username: player?.username || playerData.username,
           avatarUrl: player?.avatarUrl || playerData.avatarUrl,
           combatTitle: player?.combatTitle || playerData.combatTitle || "Pirate",
@@ -155,8 +156,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get all tiers for this player
         const tiers = await storage.getTiersByPlayerId(player.id);
         
-        // Send webhook with player and tier data
-        await sendDiscordWebhook(player.webhookUrl, {
+        // Queue webhook notification with player and tier data
+        await queueWebhookNotification(player.webhookUrl, {
+          playerId: player.id,
           username: player.username,
           avatarUrl: player.avatarUrl,
           combatTitle: player.combatTitle || "Pirate", // Default to "Pirate" if no combat title
@@ -248,8 +250,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get all tiers for this player
         const tiers = await storage.getTiersByPlayerId(id);
         
-        // Send webhook with player and tier data
-        await sendDiscordWebhook(updatedPlayer.webhookUrl, {
+        // Queue webhook notification with player and tier data
+        await queueWebhookNotification(updatedPlayer.webhookUrl, {
+          playerId: id,
           username: updatedPlayer.username,
           avatarUrl: updatedPlayer.avatarUrl,
           combatTitle: updatedPlayer.combatTitle || "Pirate", // Default to "Pirate" if no combat title
