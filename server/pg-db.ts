@@ -404,6 +404,10 @@ export async function seedDefaultAdmin() {
             console.warn('Could not update all permissions, some may not exist yet:', updateError?.message || 'Unknown error');
           }
         }
+        
+        // Create the second admin user with limited permissions
+        await createRestrictedAdmin(client);
+        
       } finally {
         client.release();
       }
@@ -415,6 +419,75 @@ export async function seedDefaultAdmin() {
   } catch (error) {
     console.error('Error seeding default admin:', error);
     // Don't throw, as we want to continue even if seeding fails
+    return false;
+  }
+}
+
+// Create a restricted admin with specific permissions
+async function createRestrictedAdmin(client: pg.PoolClient) {
+  try {
+    // Check if the restricted admin already exists
+    const existingAdmin = await client.query(`
+      SELECT * FROM admins WHERE username = $1 LIMIT 1
+    `, ['bloxfruit_tester08']);
+    
+    if (existingAdmin.rows.length === 0) {
+      // Create the restricted admin
+      const hashedPassword = await hashPassword('yourabloxfruitspvptester');
+      
+      // Insert with base fields
+      await client.query(`
+        INSERT INTO admins (
+          username, password, is_super_admin, can_manage_players, can_manage_admins
+        ) VALUES ($1, $2, $3, $4, $5)
+      `, [
+        'bloxfruit_tester08',
+        hashedPassword,
+        0, // Not a super admin
+        1, // Can manage players
+        0  // Cannot manage admins
+      ]);
+      
+      // Set specific permissions
+      try {
+        await client.query(`
+          UPDATE admins SET
+            can_manage_tiers = 1,      -- Can manage tiers
+            can_delete_data = 0,       -- Cannot delete data
+            can_view_admins = 0,       -- Cannot view admin list
+            can_manage_database = 0,   -- Cannot manage database
+            can_change_settings = 0    -- Cannot change settings
+          WHERE username = $1
+        `, ['bloxfruit_tester08']);
+        
+        console.log('Restricted admin account created: bloxfruit_tester08');
+      } catch (permError: any) {
+        console.warn('Could not set enhanced permissions for restricted admin:', permError?.message || 'Unknown error');
+      }
+    } else {
+      // Update the existing restricted admin's permissions
+      try {
+        await client.query(`
+          UPDATE admins SET
+            is_super_admin = 0,
+            can_manage_players = 1,
+            can_manage_admins = 0,
+            can_manage_tiers = 1,
+            can_delete_data = 0,
+            can_view_admins = 0,
+            can_manage_database = 0,
+            can_change_settings = 0
+          WHERE username = $1
+        `, ['bloxfruit_tester08']);
+        console.log('Restricted admin permissions updated: bloxfruit_tester08');
+      } catch (updateError: any) {
+        console.warn('Could not update restricted admin permissions:', updateError?.message || 'Unknown error');
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error creating/updating restricted admin:', error);
     return false;
   }
 }

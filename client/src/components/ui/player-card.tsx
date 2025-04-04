@@ -134,7 +134,7 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
           {orderedTiers.map((tier, index) => (
             <div key={index} className="flex flex-col items-center">
               {tier?.category === "bounty" && tier?.tier ? (
-                <div className="px-2 py-1 bg-red-900/50 rounded text-white text-xs font-bold">
+                <div className="px-2 py-1 bg-red-900/30 rounded text-red-400 text-xs font-bold">
                   {tier.tier}
                 </div>
               ) : (
