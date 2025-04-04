@@ -2,6 +2,7 @@ import {
   players, Player, InsertPlayer, 
   tiers, Tier, InsertTier, 
   admins, Admin, InsertAdmin,
+  dbSettings, DbSetting, InsertDbSetting,
   PlayerWithTiers 
 } from "../shared/schema";
 import { db, pool, initDatabase, seedDefaultAdmin, testConnection } from "./mysql-db";
@@ -41,6 +42,14 @@ export interface IStorage {
   getAdminByUsername(username: string): Promise<Admin | undefined>;
   createAdmin(admin: InsertAdmin): Promise<Admin>;
   getAdmins(): Promise<Admin[]>;
+  
+  // Database settings methods
+  getDbSettings(): Promise<DbSetting[]>;
+  getActiveDbSetting(): Promise<DbSetting | undefined>;
+  createDbSetting(setting: InsertDbSetting): Promise<DbSetting>;
+  updateDbSetting(id: number, setting: Partial<InsertDbSetting>): Promise<DbSetting | undefined>;
+  deleteDbSetting(id: number): Promise<boolean>;
+  setActiveDbSetting(id: number): Promise<boolean>;
   
   // Combined methods
   getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]>;
@@ -383,6 +392,215 @@ export class MySQLStorage implements IStorage {
     
     return result;
   }
+
+  // Database settings methods
+  async getDbSettings(): Promise<DbSetting[]> {
+    await this.ensureInitialized();
+    try {
+      const [rows] = await pool.execute("SELECT * FROM db_settings ORDER BY updated_at DESC");
+      return rows as DbSetting[];
+    } catch (error) {
+      console.error("Error fetching database settings:", error);
+      return [];
+    }
+  }
+  
+  async getActiveDbSetting(): Promise<DbSetting | undefined> {
+    await this.ensureInitialized();
+    try {
+      const [rows] = await pool.execute(
+        "SELECT * FROM db_settings WHERE is_active = 1 LIMIT 1"
+      );
+      const settings = rows as DbSetting[];
+      return settings.length > 0 ? settings[0] : undefined;
+    } catch (error) {
+      console.error("Error fetching active database setting:", error);
+      return undefined;
+    }
+  }
+  
+  async createDbSetting(settingData: InsertDbSetting): Promise<DbSetting> {
+    await this.ensureInitialized();
+    try {
+      // Insert the new database setting
+      const [result] = await pool.execute(
+        `INSERT INTO db_settings (
+          name, host, port, username, password, database, ssl, is_active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          settingData.name,
+          settingData.host,
+          settingData.port,
+          settingData.username,
+          settingData.password,
+          settingData.database,
+          settingData.ssl ? 1 : 0,
+          settingData.isActive ? 1 : 0
+        ]
+      );
+      
+      // If this setting is active, deactivate all others
+      if (settingData.isActive) {
+        await pool.execute(
+          "UPDATE db_settings SET is_active = 0 WHERE id != ?",
+          [(result as any).insertId]
+        );
+      }
+      
+      // Get the inserted setting
+      const [rows] = await pool.execute(
+        "SELECT * FROM db_settings WHERE id = ?",
+        [(result as any).insertId]
+      );
+      
+      const settings = rows as DbSetting[];
+      if (settings.length === 0) {
+        throw new Error("Failed to retrieve created database setting");
+      }
+      
+      return settings[0];
+    } catch (error) {
+      console.error("Error creating database setting:", error);
+      throw error;
+    }
+  }
+  
+  async updateDbSetting(id: number, settingData: Partial<InsertDbSetting>): Promise<DbSetting | undefined> {
+    await this.ensureInitialized();
+    try {
+      // Build update query dynamically
+      const updates: string[] = [];
+      const values: any[] = [];
+      
+      if (settingData.name !== undefined) {
+        updates.push("name = ?");
+        values.push(settingData.name);
+      }
+      
+      if (settingData.host !== undefined) {
+        updates.push("host = ?");
+        values.push(settingData.host);
+      }
+      
+      if (settingData.port !== undefined) {
+        updates.push("port = ?");
+        values.push(settingData.port);
+      }
+      
+      if (settingData.username !== undefined) {
+        updates.push("username = ?");
+        values.push(settingData.username);
+      }
+      
+      if (settingData.password !== undefined) {
+        updates.push("password = ?");
+        values.push(settingData.password);
+      }
+      
+      if (settingData.database !== undefined) {
+        updates.push("database = ?");
+        values.push(settingData.database);
+      }
+      
+      if (settingData.ssl !== undefined) {
+        updates.push("ssl = ?");
+        values.push(settingData.ssl ? 1 : 0);
+      }
+      
+      if (settingData.isActive !== undefined) {
+        updates.push("is_active = ?");
+        values.push(settingData.isActive ? 1 : 0);
+      }
+      
+      // Always update the updated_at timestamp
+      updates.push("updated_at = NOW()");
+      
+      // If no updates, return the existing setting
+      if (updates.length === 0) {
+        const [rows] = await pool.execute(
+          "SELECT * FROM db_settings WHERE id = ?",
+          [id]
+        );
+        const settings = rows as DbSetting[];
+        return settings.length > 0 ? settings[0] : undefined;
+      }
+      
+      // Add ID to values for WHERE clause
+      values.push(id);
+      
+      // Update the setting
+      await pool.execute(
+        `UPDATE db_settings SET ${updates.join(", ")} WHERE id = ?`,
+        values
+      );
+      
+      // If this setting is now active, deactivate all others
+      if (settingData.isActive) {
+        await pool.execute(
+          "UPDATE db_settings SET is_active = 0 WHERE id != ?",
+          [id]
+        );
+      }
+      
+      // Get the updated setting
+      const [rows] = await pool.execute(
+        "SELECT * FROM db_settings WHERE id = ?",
+        [id]
+      );
+      
+      const settings = rows as DbSetting[];
+      return settings.length > 0 ? settings[0] : undefined;
+    } catch (error) {
+      console.error("Error updating database setting:", error);
+      throw error;
+    }
+  }
+  
+  async deleteDbSetting(id: number): Promise<boolean> {
+    await this.ensureInitialized();
+    try {
+      // Check if this is the active setting
+      const [activeRows] = await pool.execute(
+        "SELECT is_active FROM db_settings WHERE id = ?",
+        [id]
+      );
+      
+      const settings = activeRows as DbSetting[];
+      if (settings.length > 0 && settings[0].isActive) {
+        throw new Error("Cannot delete active database setting");
+      }
+      
+      // Delete the setting
+      const [result] = await pool.execute(
+        "DELETE FROM db_settings WHERE id = ?",
+        [id]
+      );
+      
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error deleting database setting:", error);
+      throw error;
+    }
+  }
+  
+  async setActiveDbSetting(id: number): Promise<boolean> {
+    await this.ensureInitialized();
+    try {
+      // First, deactivate all settings
+      await pool.execute("UPDATE db_settings SET is_active = 0");
+      
+      // Then activate the specified setting
+      const [result] = await pool.execute(
+        "UPDATE db_settings SET is_active = 1 WHERE id = ?",
+        [id]
+      );
+      
+      return (result as any).affectedRows > 0;
+    } catch (error) {
+      console.error("Error setting active database setting:", error);
+      throw error;
+    }
+  }
 }
 
 // In-memory storage implementation (kept for reference)
@@ -610,6 +828,37 @@ export class MemStorage implements IStorage {
     
     return result;
   }
+  
+  // Database settings methods - in-memory implementation
+  async getDbSettings(): Promise<DbSetting[]> {
+    // In-memory implementation doesn't store database settings
+    return [];
+  }
+  
+  async getActiveDbSetting(): Promise<DbSetting | undefined> {
+    // In-memory implementation doesn't have active database settings
+    return undefined;
+  }
+  
+  async createDbSetting(settingData: InsertDbSetting): Promise<DbSetting> {
+    // Cannot create database settings in memory mode
+    throw new Error("Cannot create database settings in memory mode");
+  }
+  
+  async updateDbSetting(id: number, settingData: Partial<InsertDbSetting>): Promise<DbSetting | undefined> {
+    // Cannot update database settings in memory mode
+    throw new Error("Cannot update database settings in memory mode");
+  }
+  
+  async deleteDbSetting(id: number): Promise<boolean> {
+    // Cannot delete database settings in memory mode
+    throw new Error("Cannot delete database settings in memory mode");
+  }
+  
+  async setActiveDbSetting(id: number): Promise<boolean> {
+    // Cannot set active database settings in memory mode
+    throw new Error("Cannot set active database settings in memory mode");
+  }
 }
 
 // Create an async function to initialize storage
@@ -758,6 +1007,37 @@ class StorageProxy implements IStorage {
   async getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]> {
     const storage = await this.getStorage();
     return storage.getPlayersWithTiers(category);
+  }
+  
+  // Database settings methods
+  async getDbSettings(): Promise<DbSetting[]> {
+    const storage = await this.getStorage();
+    return storage.getDbSettings();
+  }
+  
+  async getActiveDbSetting(): Promise<DbSetting | undefined> {
+    const storage = await this.getStorage();
+    return storage.getActiveDbSetting();
+  }
+  
+  async createDbSetting(setting: InsertDbSetting): Promise<DbSetting> {
+    const storage = await this.getStorage();
+    return storage.createDbSetting(setting);
+  }
+  
+  async updateDbSetting(id: number, setting: Partial<InsertDbSetting>): Promise<DbSetting | undefined> {
+    const storage = await this.getStorage();
+    return storage.updateDbSetting(id, setting);
+  }
+  
+  async deleteDbSetting(id: number): Promise<boolean> {
+    const storage = await this.getStorage();
+    return storage.deleteDbSetting(id);
+  }
+  
+  async setActiveDbSetting(id: number): Promise<boolean> {
+    const storage = await this.getStorage();
+    return storage.setActiveDbSetting(id);
   }
 }
 

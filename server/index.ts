@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { testConnection, initDatabase, seedDefaultAdmin } from "./pg-db.js";
+import { testConnection, initDatabase, seedDefaultAdmin, updateDatabaseConnection } from "./pg-db.js";
 
 const app = express();
 app.use(express.json());
@@ -45,6 +45,14 @@ app.use((req, res, next) => {
       log("Successfully connected to PostgreSQL database");
       await initDatabase();
       await seedDefaultAdmin();
+      
+      // Try to load database settings from DB
+      try {
+        await updateDatabaseConnection();
+        log("Database connection settings loaded from database");
+      } catch (dbSettingsError) {
+        log(`Unable to load database settings, using defaults: ${dbSettingsError}`);
+      }
     } else {
       log("Failed to connect to PostgreSQL database, check connection settings");
     }
