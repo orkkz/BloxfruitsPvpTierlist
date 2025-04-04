@@ -133,18 +133,16 @@ export function PlayerCard({ playerWithTiers, rank }: PlayerCardProps) {
         <div className="flex flex-wrap justify-end gap-2 md:gap-3">
           {orderedTiers.map((tier, index) => (
             <div key={index} className="flex flex-col items-center">
-              <div className={`flex items-center mb-1 ${categoryColors[tier?.category as keyof typeof categoryColors] || "text-gray-400"}`}>
-                {tier?.category && categoryIcons[tier.category as keyof typeof categoryIcons]}
-                <span className="text-xs ml-1 font-medium">
-                  {tier?.category ? tier.category.charAt(0).toUpperCase() + tier.category.slice(1) : "Unknown"}
-                </span>
-              </div>
               {tier?.category === "bounty" && tier?.tier ? (
                 <div className="px-2 py-1 bg-red-900/50 rounded text-white text-xs font-bold">
                   {tier.tier}
                 </div>
               ) : (
-                <TierBadge tier={tier?.tier as TierGrade} />
+                <TierBadge 
+                  tier={tier?.tier as TierGrade} 
+                  category={tier?.category} 
+                  showCategoryIcon={true} 
+                />
               )}
             </div>
           ))}

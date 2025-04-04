@@ -200,3 +200,39 @@ export async function updateSiteSettings(logoUrl: string): Promise<{ success: bo
   
   return result;
 }
+
+/**
+ * Get database statistics and status
+ */
+export async function getDatabaseStats(): Promise<{
+  success: boolean,
+  stats: {
+    type: string,
+    playerCount: number,
+    tierCount: number,
+    adminCount: number,
+    connected: boolean,
+    status: string
+  }
+}> {
+  const response = await apiRequest("GET", "/api/database/stats");
+  
+  if (!response.ok) {
+    throw new Error(`Failed to get database stats: ${response.statusText}`);
+  }
+  
+  return await response.json();
+}
+
+/**
+ * Reset database (delete all data)
+ */
+export async function resetDatabase(): Promise<{ success: boolean, message: string }> {
+  const response = await apiRequest("POST", "/api/database/reset");
+  
+  if (!response.ok) {
+    throw new Error(`Failed to reset database: ${response.statusText}`);
+  }
+  
+  return await response.json();
+}

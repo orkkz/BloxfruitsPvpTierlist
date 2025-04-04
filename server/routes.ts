@@ -1,4 +1,4 @@
-import express, { type Express, Request, Response } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { sendDiscordWebhook } from "./webhook-utils.js";
 import { z } from "zod";
+import { initDatabase, seedDefaultAdmin } from "./pg-db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -287,6 +288,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating settings:", error);
       return res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+  
+  // Database management routes
+  
+  // Get database stats
+  apiRouter.get("/database/stats", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Check admin permissions (must be super admin)
+      const admin = req.user as any;
+      if (!admin.isSuperAdmin) {
+        return res.status(403).json({ message: "You don't have permission to access database information" });
+      }
+      
+      // Get the database type
+      const dbType = process.env.DATABASE_URL?.includes('mysql') ? 'MySQL' : 
+                     process.env.DATABASE_URL?.includes('postgres') ? 'PostgreSQL' : 'In-Memory';
+      
+      // Get statistics from storage
+      const players = await storage.getPlayers();
+      const tiers = await storage.getTiers();
+      const admins = await storage.getAdmins();
+      
+      // Check if we're connected to a real database
+      const connected = dbType !== 'In-Memory';
+      const status = connected ? 'Connected' : 'Using fallback in-memory storage';
+      
+      return res.json({
+        success: true,
+        stats: {
+          type: dbType,
+          playerCount: players.length,
+          tierCount: tiers.length,
+          adminCount: admins.length,
+          connected,
+          status
+        }
+      });
+    } catch (error) {
+      console.error("Error getting database stats:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to get database stats",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Reset database (danger zone!)
+  apiRouter.post("/database/reset", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Check admin permissions (must be super admin)
+      const admin = req.user as any;
+      if (!admin.isSuperAdmin) {
+        return res.status(403).json({ message: "You don't have permission to reset the database" });
+      }
+      
+      // In a real production app, you would want additional safeguards here
+      // and probably a more sophisticated approach to resetting the database
+      
+      // For this app, we'll simply clear the database and reinitialize
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ 
+          success: false,
+          message: "Database reset is not allowed in production mode" 
+        });
+      }
+      
+      try {
+        // Drop and recreate the tables
+        await initDatabase();
+        await seedDefaultAdmin();
+        
+        return res.json({
+          success: true,
+          message: "Database has been reset successfully"
+        });
+      } catch (dbError) {
+        console.error("Error resetting database:", dbError);
+        return res.status(500).json({ 
+          success: false,
+          message: "Failed to reset database", 
+          error: dbError instanceof Error ? dbError.message : "Unknown database error"
+        });
+      }
+    } catch (error) {
+      console.error("Error in database reset route:", error);
+      return res.status(500).json({ 
+        success: false,
+        message: "An unexpected error occurred", 
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
   
