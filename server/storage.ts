@@ -3,8 +3,8 @@ import {
   tiers, Tier, InsertTier, 
   admins, Admin, InsertAdmin,
   PlayerWithTiers 
-} from "@shared/schema";
-import { db, pool, initDatabase, seedDefaultAdmin, testConnection } from "./mysql-db";
+} from "../shared/schema.js";
+import { db, pool, initDatabase, seedDefaultAdmin, testConnection } from "./pg-db.js";
 import { eq, and, like, desc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -45,8 +45,8 @@ export interface IStorage {
   getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]>;
 }
 
-// MySQL storage implementation
-export class MySQLStorage implements IStorage {
+// PostgreSQL storage implementation
+export class PostgreSQLStorage implements IStorage {
   private initialized: boolean = false;
   public sessionStore: session.Store;
   
@@ -64,7 +64,7 @@ export class MySQLStorage implements IStorage {
     
     // We'll initialize asynchronously to avoid blocking
     this.initialize().catch(error => {
-      console.error("Error initializing MySQL database:", error);
+      console.error("Error initializing PostgreSQL database:", error);
     });
   }
 
@@ -73,13 +73,13 @@ export class MySQLStorage implements IStorage {
       // Test the connection first
       const connected = await testConnection();
       if (!connected) {
-        throw new Error("Unable to connect to MySQL database");
+        throw new Error("Unable to connect to PostgreSQL database");
       }
       
       await initDatabase();
       await seedDefaultAdmin();
       this.initialized = true;
-      console.log("MySQL database initialized successfully");
+      console.log("PostgreSQL database initialized successfully");
     } catch (error) {
       console.error("Error initializing database:", error);
       throw error; // Re-throw to trigger fallback
@@ -91,7 +91,7 @@ export class MySQLStorage implements IStorage {
       // If not yet initialized, wait a bit and check again
       await new Promise(resolve => setTimeout(resolve, 100));
       if (!this.initialized) {
-        throw new Error("MySQL database not initialized");
+        throw new Error("PostgreSQL database not initialized");
       }
     }
   }
@@ -99,110 +99,68 @@ export class MySQLStorage implements IStorage {
   // Player methods
   async getPlayers(): Promise<Player[]> {
     await this.ensureInitialized();
-    const [rows] = await pool.execute("SELECT * FROM players");
-    return rows as Player[];
+    const result = await db.select().from(players);
+    return result;
   }
 
   async getPlayerById(id: number): Promise<Player | undefined> {
     await this.ensureInitialized();
-    const [rows] = await pool.execute(
-      "SELECT * FROM players WHERE id = ?",
-      [id]
-    );
-    const players = rows as Player[];
-    return players.length > 0 ? players[0] : undefined;
+    const result = await db.select().from(players).where(eq(players.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getPlayerByRobloxId(robloxId: string): Promise<Player | undefined> {
     await this.ensureInitialized();
-    const [rows] = await pool.execute(
-      "SELECT * FROM players WHERE roblox_id = ?",
-      [robloxId]
-    );
-    const players = rows as Player[];
-    return players.length > 0 ? players[0] : undefined;
+    const result = await db.select().from(players).where(eq(players.robloxId, robloxId));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async createPlayer(playerData: InsertPlayer): Promise<Player> {
     await this.ensureInitialized();
-    const [result] = await pool.execute(
-      `INSERT INTO players (roblox_id, username, avatar_url, combat_title, points, bounty, region) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        playerData.robloxId,
-        playerData.username,
-        playerData.avatarUrl,
-        playerData.combatTitle || "Rookie",
-        playerData.points || 0,
-        playerData.bounty || "0",
-        playerData.region || "Global"
-      ]
-    );
     
-    // Get the inserted ID
-    const insertId = (result as any).insertId;
+    // Prepare player data with defaults
+    const data = {
+      robloxId: playerData.robloxId,
+      username: playerData.username,
+      avatarUrl: playerData.avatarUrl,
+      combatTitle: playerData.combatTitle || "Rookie",
+      points: playerData.points || 0,
+      bounty: playerData.bounty || "0",
+      region: playerData.region || "Global"
+    };
     
-    // Fetch the inserted player
-    const player = await this.getPlayerById(insertId);
-    if (!player) {
-      throw new Error("Failed to retrieve created player");
+    // Insert the player
+    const result = await db.insert(players).values(data).returning();
+    
+    if (!result || result.length === 0) {
+      throw new Error("Failed to create player");
     }
     
-    return player;
+    return result[0];
   }
 
   async updatePlayer(id: number, playerData: Partial<InsertPlayer>): Promise<Player | undefined> {
     await this.ensureInitialized();
-    // Build the SET part of the query dynamically
-    const setFields: string[] = [];
-    const values: any[] = [];
     
-    if (playerData.robloxId !== undefined) {
-      setFields.push("roblox_id = ?");
-      values.push(playerData.robloxId);
-    }
+    // Create an object with the fields to update
+    const updateData: Record<string, any> = {};
     
-    if (playerData.username !== undefined) {
-      setFields.push("username = ?");
-      values.push(playerData.username);
-    }
+    if (playerData.robloxId !== undefined) updateData.robloxId = playerData.robloxId;
+    if (playerData.username !== undefined) updateData.username = playerData.username;
+    if (playerData.avatarUrl !== undefined) updateData.avatarUrl = playerData.avatarUrl;
+    if (playerData.combatTitle !== undefined) updateData.combatTitle = playerData.combatTitle;
+    if (playerData.points !== undefined) updateData.points = playerData.points;
+    if (playerData.region !== undefined) updateData.region = playerData.region;
+    if (playerData.bounty !== undefined) updateData.bounty = playerData.bounty;
     
-    if (playerData.avatarUrl !== undefined) {
-      setFields.push("avatar_url = ?");
-      values.push(playerData.avatarUrl);
-    }
-    
-    if (playerData.combatTitle !== undefined) {
-      setFields.push("combat_title = ?");
-      values.push(playerData.combatTitle);
-    }
-    
-    if (playerData.points !== undefined) {
-      setFields.push("points = ?");
-      values.push(playerData.points);
-    }
-    
-    if (playerData.region !== undefined) {
-      setFields.push("region = ?");
-      values.push(playerData.region);
-    }
-    
-    if (playerData.bounty !== undefined) {
-      setFields.push("bounty = ?");
-      values.push(playerData.bounty);
-    }
-    
-    if (setFields.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return await this.getPlayerById(id); // Nothing to update
     }
     
-    // Add the ID for the WHERE clause
-    values.push(id);
-    
-    await pool.execute(
-      `UPDATE players SET ${setFields.join(", ")} WHERE id = ?`,
-      values
-    );
+    // Update the player
+    await db.update(players)
+      .set(updateData)
+      .where(eq(players.id, id));
     
     // Fetch the updated player
     return await this.getPlayerById(id);
@@ -638,17 +596,17 @@ export class MemStorage implements IStorage {
 // Create an async function to initialize storage
 export async function initializeStorage(): Promise<IStorage> {
   try {
-    // Test the MySQL connection first
+    // Test the PostgreSQL connection first
     const connected = await testConnection();
     if (!connected) {
-      throw new Error("MySQL connection test failed");
+      throw new Error("PostgreSQL connection test failed");
     }
     
-    // If connection is good, use MySQL storage
-    console.log("Using MySQL storage");
-    return new MySQLStorage();
+    // If connection is good, use PostgreSQL storage
+    console.log("Using PostgreSQL storage");
+    return new PostgreSQLStorage();
   } catch (error) {
-    console.warn("Failed to initialize MySQL storage:", error);
+    console.warn("Failed to initialize PostgreSQL storage:", error);
     console.log("Falling back to in-memory storage");
     return new MemStorage();
   }

@@ -1,24 +1,24 @@
-import { mysqlTable, text, serial, int, varchar, timestamp, unique, index, mysqlEnum } from "drizzle-orm/mysql-core";
+import { pgTable, text, serial, integer, varchar, timestamp, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Player table
-export const players = mysqlTable("players", {
+export const players = pgTable("players", {
   id: serial("id").primaryKey(),
   robloxId: varchar("roblox_id", { length: 50 }).notNull().unique(),
   username: varchar("username", { length: 100 }).notNull(),
   avatarUrl: text("avatar_url").notNull(),
   combatTitle: varchar("combat_title", { length: 100 }).default("Rookie"),
-  points: int("points").default(0),
+  points: integer("points").default(0),
   bounty: varchar("bounty", { length: 20 }).default("0"),
   region: varchar("region", { length: 10 }).default("NA"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Tiers table - stores player rankings in different categories
-export const tiers = mysqlTable("tiers", {
+export const tiers = pgTable("tiers", {
   id: serial("id").primaryKey(),
-  playerId: int("player_id").notNull(),
+  playerId: integer("player_id").notNull(),
   category: varchar("category", { length: 20 }).notNull(), // melee, fruit, sword, gun
   tier: varchar("tier", { length: 5 }).notNull(), // SS, S, A, B, C, D, E
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -28,7 +28,7 @@ export const tiers = mysqlTable("tiers", {
 }));
 
 // Admin users for authentication
-export const admins = mysqlTable("admins", {
+export const admins = pgTable("admins", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 100 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
