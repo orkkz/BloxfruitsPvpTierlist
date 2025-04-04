@@ -87,8 +87,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerData = insertPlayerSchema.parse(req.body);
       
       // Ensure combat titles are using new naming convention
-      if (playerData.combatTitle && COMBAT_TITLE_MAPPING[playerData.combatTitle]) {
-        playerData.combatTitle = COMBAT_TITLE_MAPPING[playerData.combatTitle];
+      if (playerData.combatTitle && Object.keys(COMBAT_TITLE_MAPPING).includes(playerData.combatTitle)) {
+        playerData.combatTitle = COMBAT_TITLE_MAPPING[playerData.combatTitle as keyof typeof COMBAT_TITLE_MAPPING];
       }
       
       // Check if player already exists

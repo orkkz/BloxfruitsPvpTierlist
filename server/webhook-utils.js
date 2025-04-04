@@ -1,5 +1,9 @@
 // Discord webhook utility
 
+// Track recent webhooks to prevent duplicates
+const recentWebhooks = new Map();
+const WEBHOOK_COOLDOWN_MS = 5000; // 5 seconds cooldown
+
 /**
  * Send data to a Discord webhook
  * @param {string} webhookUrl - Discord webhook URL
@@ -53,6 +57,28 @@ export async function sendDiscordWebhook(webhookUrl, data) {
       return false;
     }
     
+    // Create a unique key for this webhook based on username and tier data
+    const webhookKey = `${data.username}-${JSON.stringify(fields)}`;
+    
+    // Check if we've sent this exact webhook recently
+    const lastSent = recentWebhooks.get(webhookKey);
+    const now = Date.now();
+    
+    if (lastSent && (now - lastSent) < WEBHOOK_COOLDOWN_MS) {
+      console.log(`Webhook for ${data.username} was sent recently, skipping duplicate`);
+      return false;
+    }
+    
+    // Update the last sent time for this webhook key
+    recentWebhooks.set(webhookKey, now);
+    
+    // Clean up old entries from the Map to prevent memory leaks
+    for (const [key, timestamp] of recentWebhooks.entries()) {
+      if (now - timestamp > 30000) { // Remove entries older than 30 seconds
+        recentWebhooks.delete(key);
+      }
+    }
+    
     // Get tier color based on first tier (or default to gray)
     const tierColors = {
       'SS': 14423100, // Pink
@@ -99,6 +125,7 @@ export async function sendDiscordWebhook(webhookUrl, data) {
       throw new Error(`HTTP error ${response.status}`);
     }
     
+    console.log(`Webhook sent successfully for ${data.username}`);
     return true;
   } catch (error) {
     console.error('Error sending Discord webhook:', error);
