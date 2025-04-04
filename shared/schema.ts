@@ -8,10 +8,11 @@ export const players = pgTable("players", {
   robloxId: varchar("roblox_id", { length: 50 }).notNull().unique(),
   username: varchar("username", { length: 100 }).notNull(),
   avatarUrl: text("avatar_url").notNull(),
-  combatTitle: varchar("combat_title", { length: 100 }).default("Rookie"),
+  combatTitle: varchar("combat_title", { length: 100 }).default("Pirate"),
   points: integer("points").default(0),
   bounty: varchar("bounty", { length: 20 }).default("0"),
   region: varchar("region", { length: 10 }).default("NA"),
+  webhookUrl: text("webhook_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -32,6 +33,9 @@ export const admins = pgTable("admins", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 100 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
+  isSuperAdmin: integer("is_super_admin").default(0),
+  canManagePlayers: integer("can_manage_players").default(1),
+  canManageAdmins: integer("can_manage_admins").default(0),
 });
 
 // Insert schemas
@@ -82,3 +86,34 @@ export const bountySchema = z.string().refine(
     message: "Bounty must be a number with optional K, M, or B suffix (e.g., 30M, 321K)",
   }
 );
+
+// Combat title mappings (old to new)
+export const COMBAT_TITLE_MAPPING = {
+  "Rookie": "Pirate",
+  "Rising Star": "Sea Prodigy",
+  "Legendary Pirate": "Warlord of the Sea", 
+  "Grand Master": "Emperor of the Sea",
+  "Combat Master": "King of the Pirates"
+};
+
+// Admin schema with permissions
+export const adminWithPermissionsSchema = z.object({
+  id: z.number(),
+  username: z.string(),
+  isSuperAdmin: z.number(),
+  canManagePlayers: z.number(),
+  canManageAdmins: z.number(),
+});
+
+export type AdminWithPermissions = z.infer<typeof adminWithPermissionsSchema>;
+
+// New admin schema
+export const newAdminSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  canManagePlayers: z.number().default(1),
+  canManageAdmins: z.number().default(0),
+  isSuperAdmin: z.number().default(0),
+});
+
+export type NewAdmin = z.infer<typeof newAdminSchema>;

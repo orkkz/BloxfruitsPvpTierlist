@@ -6,8 +6,11 @@ import {
   insertPlayerSchema, 
   insertTierSchema, 
   loginSchema,
-  categoryEnum
+  categoryEnum,
+  newAdminSchema,
+  COMBAT_TITLE_MAPPING
 } from "@shared/schema";
+import { sendDiscordWebhook } from "./webhook-utils.js";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -74,20 +77,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create or update player by Roblox ID (admin only)
   apiRouter.post("/players", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      // Check admin permissions
+      const admin = req.user as any;
+      if (!admin.canManagePlayers) {
+        return res.status(403).json({ message: "You don't have permission to manage players" });
+      }
+      
       const playerData = insertPlayerSchema.parse(req.body);
+      
+      // Ensure combat titles are using new naming convention
+      if (playerData.combatTitle && COMBAT_TITLE_MAPPING[playerData.combatTitle]) {
+        playerData.combatTitle = COMBAT_TITLE_MAPPING[playerData.combatTitle];
+      }
       
       // Check if player already exists
       const existingPlayer = await storage.getPlayerByRobloxId(playerData.robloxId);
+      let player;
       
       if (existingPlayer) {
         // Update existing player
-        const updatedPlayer = await storage.updatePlayer(existingPlayer.id, playerData);
-        return res.json(updatedPlayer);
+        player = await storage.updatePlayer(existingPlayer.id, playerData);
       } else {
         // Create new player
-        const newPlayer = await storage.createPlayer(playerData);
-        return res.status(201).json(newPlayer);
+        player = await storage.createPlayer(playerData);
       }
+      
+      // If webhook URL is provided, send a notification after tiers are created
+      if (playerData.webhookUrl) {
+        // We'll get any tiers in a later step for the webhook notification
+      }
+      
+      return existingPlayer ? res.json(player) : res.status(201).json(player);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid player data", errors: error.errors });
@@ -100,6 +120,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create or update a tier for a player (admin only)
   apiRouter.post("/tiers", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      // Check admin permissions
+      const admin = req.user as any;
+      if (!admin.canManagePlayers) {
+        return res.status(403).json({ message: "You don't have permission to manage player tiers" });
+      }
+      
       const tierData = insertTierSchema.parse(req.body);
       
       // Check if player exists
@@ -110,6 +136,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create or update tier
       const tier = await storage.createTier(tierData);
+      
+      // Send webhook notification if player has a webhook URL
+      if (player.webhookUrl) {
+        // Get all tiers for this player
+        const tiers = await storage.getTiersByPlayerId(player.id);
+        
+        // Send webhook with player and tier data
+        await sendDiscordWebhook(player.webhookUrl, {
+          username: player.username,
+          avatarUrl: player.avatarUrl,
+          combatTitle: player.combatTitle || "Pirate", // Default to "Pirate" if no combat title
+          tiers: tiers
+        });
+      }
+      
       return res.status(201).json(tier);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -126,6 +167,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete a player by ID (admin only)
   apiRouter.delete("/players/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      // Check admin permissions
+      const admin = req.user as any;
+      if (!admin.canManagePlayers) {
+        return res.status(403).json({ message: "You don't have permission to manage players" });
+      }
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid ID" });
@@ -155,6 +202,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update a player by ID (admin only)
   apiRouter.put("/players/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      // Check admin permissions
+      const admin = req.user as any;
+      if (!admin.canManagePlayers) {
+        return res.status(403).json({ message: "You don't have permission to manage players" });
+      }
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid ID" });
@@ -169,8 +222,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate update data
       const playerData = insertPlayerSchema.partial().parse(req.body);
       
+      // Ensure combat titles are using new naming convention
+      if (playerData.combatTitle && COMBAT_TITLE_MAPPING[playerData.combatTitle as keyof typeof COMBAT_TITLE_MAPPING]) {
+        playerData.combatTitle = COMBAT_TITLE_MAPPING[playerData.combatTitle as keyof typeof COMBAT_TITLE_MAPPING];
+      }
+      
       // Update player
       const updatedPlayer = await storage.updatePlayer(id, playerData);
+      
+      // Send webhook notification if player has a webhook URL
+      if (updatedPlayer?.webhookUrl) {
+        // Get all tiers for this player
+        const tiers = await storage.getTiersByPlayerId(id);
+        
+        // Send webhook with player and tier data
+        await sendDiscordWebhook(updatedPlayer.webhookUrl, {
+          username: updatedPlayer.username,
+          avatarUrl: updatedPlayer.avatarUrl,
+          combatTitle: updatedPlayer.combatTitle || "Pirate", // Default to "Pirate" if no combat title
+          tiers: tiers
+        });
+      }
+      
       return res.json(updatedPlayer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -184,6 +257,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update site settings (logo URL) (admin only)
   apiRouter.post("/settings", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      // Check admin permissions
+      const admin = req.user as any;
+      if (!admin.canManagePlayers) {
+        return res.status(403).json({ message: "You don't have permission to manage site settings" });
+      }
+      
       const { logoUrl } = req.body;
       
       if (typeof logoUrl !== 'string') {
@@ -196,6 +275,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating settings:", error);
       return res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+  
+  // Get current admin user
+  apiRouter.get("/user", isAuthenticated, async (req: Request, res: Response) => {
+    return res.json(req.user);
+  });
+  
+  // Create new admin (super admin only)
+  apiRouter.post("/admins", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Check admin permissions (must be super admin)
+      const admin = req.user as any;
+      if (!admin.isSuperAdmin) {
+        return res.status(403).json({ message: "Only super admins can create new admin accounts" });
+      }
+      
+      const newAdminData = newAdminSchema.parse(req.body);
+      
+      // Check if username already exists
+      const existingAdmin = await storage.getAdminByUsername(newAdminData.username);
+      if (existingAdmin) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      // Create the new admin
+      const newAdmin = await storage.createAdmin(newAdminData);
+      
+      // Remove the password from the response
+      const { password, ...adminWithoutPassword } = newAdmin;
+      
+      return res.status(201).json(adminWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid admin data", errors: error.errors });
+      }
+      console.error("Error creating admin:", error);
+      return res.status(500).json({ message: "Failed to create admin" });
+    }
+  });
+  
+  // Get all admins (super admin only)
+  apiRouter.get("/admins", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Check admin permissions (must be super admin)
+      const admin = req.user as any;
+      if (!admin.isSuperAdmin) {
+        return res.status(403).json({ message: "Only super admins can view admin accounts" });
+      }
+      
+      // Get all admins from storage
+      const admins = await storage.getAdmins();
+      
+      // Remove passwords from response
+      const adminsWithoutPasswords = admins.map(admin => {
+        const { password, ...adminWithoutPassword } = admin;
+        return adminWithoutPassword;
+      });
+      
+      return res.json(adminsWithoutPasswords);
+    } catch (error) {
+      console.error("Error fetching admins:", error);
+      return res.status(500).json({ message: "Failed to fetch admins" });
     }
   });
   

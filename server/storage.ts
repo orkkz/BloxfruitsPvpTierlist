@@ -40,6 +40,7 @@ export interface IStorage {
   getAdminById(id: number): Promise<Admin | undefined>;
   getAdminByUsername(username: string): Promise<Admin | undefined>;
   createAdmin(admin: InsertAdmin): Promise<Admin>;
+  getAdmins(): Promise<Admin[]>;
   
   // Combined methods
   getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]>;
@@ -317,10 +318,21 @@ export class MySQLStorage implements IStorage {
     return admins.length > 0 ? admins[0] : undefined;
   }
 
+  async getAdmins(): Promise<Admin[]> {
+    const [rows] = await pool.execute("SELECT * FROM admins");
+    return rows as Admin[];
+  }
+
   async createAdmin(adminData: InsertAdmin): Promise<Admin> {
     const [result] = await pool.execute(
-      "INSERT INTO admins (username, password) VALUES (?, ?)",
-      [adminData.username, adminData.password]
+      "INSERT INTO admins (username, password, is_super_admin, can_manage_players, can_manage_admins) VALUES (?, ?, ?, ?, ?)",
+      [
+        adminData.username, 
+        adminData.password,
+        adminData.isSuperAdmin || 0,
+        adminData.canManagePlayers || 1, // Default to can manage players
+        adminData.canManageAdmins || 0
+      ]
     );
     
     // Get the inserted ID
@@ -401,7 +413,10 @@ export class MemStorage implements IStorage {
     this.admins.set(this.adminIdCounter++, {
       id: 1,
       username: "lucifer",
-      password: "45092e0c0e5822ae252b3b5e86fb6a4a57c9a639b951a2c6c0ac1db5da28647a6bfd8a6ebb75b38759ba53a3765c3d0f69845dfedd30dd073b27ffd3e5bb4265.7c9bf9c2aede0ef6b4395a40928f7c5b" // hashed version of 'mephist'
+      password: "45092e0c0e5822ae252b3b5e86fb6a4a57c9a639b951a2c6c0ac1db5da28647a6bfd8a6ebb75b38759ba53a3765c3d0f69845dfedd30dd073b27ffd3e5bb4265.7c9bf9c2aede0ef6b4395a40928f7c5b", // hashed version of 'mephist'
+      isSuperAdmin: 1,  // Super admin privileges
+      canManagePlayers: 1, // Can manage players
+      canManageAdmins: 1  // Can manage other admins
     });
   }
 
@@ -431,6 +446,7 @@ export class MemStorage implements IStorage {
       combatTitle: playerData.combatTitle || "Rookie",
       points: playerData.points || 0,
       bounty: playerData.bounty || "0",
+      webhookUrl: playerData.webhookUrl || null,
       createdAt: new Date()
     };
     this.players.set(id, player);
@@ -449,7 +465,8 @@ export class MemStorage implements IStorage {
       combatTitle: playerData.combatTitle || player.combatTitle,
       points: playerData.points !== undefined ? playerData.points : player.points,
       region: playerData.region || player.region,
-      bounty: playerData.bounty || player.bounty
+      bounty: playerData.bounty || player.bounty,
+      webhookUrl: playerData.webhookUrl !== undefined ? playerData.webhookUrl : player.webhookUrl
     };
     this.players.set(id, updatedPlayer);
     return updatedPlayer;
@@ -549,10 +566,17 @@ export class MemStorage implements IStorage {
     const id = this.adminIdCounter++;
     const admin: Admin = {
       id,
-      ...adminData
+      ...adminData,
+      isSuperAdmin: adminData.isSuperAdmin || 0,
+      canManagePlayers: adminData.canManagePlayers || 1,
+      canManageAdmins: adminData.canManageAdmins || 0
     };
     this.admins.set(id, admin);
     return admin;
+  }
+  
+  async getAdmins(): Promise<Admin[]> {
+    return Array.from(this.admins.values());
   }
 
   // Combined methods
@@ -724,6 +748,11 @@ class StorageProxy implements IStorage {
   async createAdmin(admin: InsertAdmin): Promise<Admin> {
     const storage = await this.getStorage();
     return storage.createAdmin(admin);
+  }
+  
+  async getAdmins(): Promise<Admin[]> {
+    const storage = await this.getStorage();
+    return storage.getAdmins();
   }
 
   async getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]> {

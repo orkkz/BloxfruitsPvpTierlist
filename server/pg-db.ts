@@ -48,10 +48,11 @@ export async function initDatabase() {
         roblox_id VARCHAR(50) NOT NULL UNIQUE,
         username VARCHAR(100) NOT NULL,
         avatar_url TEXT NOT NULL,
-        combat_title VARCHAR(100) DEFAULT 'Rookie',
+        combat_title VARCHAR(100) DEFAULT 'Pirate',
         points INTEGER DEFAULT 0,
         bounty VARCHAR(20) DEFAULT '0',
         region VARCHAR(10) DEFAULT 'NA',
+        webhook_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -73,7 +74,10 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL
+        password VARCHAR(255) NOT NULL,
+        is_super_admin INTEGER DEFAULT 0,
+        can_manage_players INTEGER DEFAULT 1,
+        can_manage_admins INTEGER DEFAULT 0
       )
     `);
     
@@ -93,22 +97,26 @@ export async function initDatabase() {
 // Seed a default admin user if one doesn't exist
 export async function seedDefaultAdmin() {
   try {
-    // Check if any admin exists
-    const adminExists = await db.select()
+    // Check if lucifer admin exists
+    const luciferExists = await db.select()
       .from(admins)
+      .where(eq(admins.username, 'lucifer'))
       .limit(1);
     
-    if (adminExists.length === 0) {
-      // Create default admin
-      const hashedPassword = await hashPassword('adminpassword');
+    if (luciferExists.length === 0) {
+      // Create lucifer admin with super admin privileges
+      const hashedPassword = await hashPassword('mephist');
       
       await db.insert(admins)
         .values({
-          username: 'admin',
-          password: hashedPassword
+          username: 'lucifer',
+          password: hashedPassword,
+          isSuperAdmin: 1,
+          canManagePlayers: 1,
+          canManageAdmins: 1
         });
       
-      console.log('Default admin user created');
+      console.log('Lucifer admin account created');
     }
     
     return true;
