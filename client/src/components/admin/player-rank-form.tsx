@@ -41,6 +41,7 @@ const playerRankSchema = z.object({
   combatTitle: z.string().min(1, "Combat Title is required"),
   points: z.string().optional(),
   bounty: z.string().optional(),
+  webhookUrl: z.string().optional(),
   // Additional categories support
   additionalCategories: z.array(
     z.object({
@@ -94,6 +95,7 @@ export function PlayerRankForm() {
       combatTitle: "Combat Master",
       points: "300",
       bounty: "0",
+      webhookUrl: "",
       additionalCategories: [],
       useManualInput: false,
       manualUsername: "",
@@ -149,6 +151,7 @@ export function PlayerRankForm() {
         combatTitle: values.combatTitle,
         points: pointsValue,
         bounty: values.bounty,
+        webhookUrl: values.webhookUrl,
         // Multiple categories
         categories: additionalCategories.length > 0 ? additionalCategories : undefined,
         // Manual input
@@ -208,6 +211,7 @@ export function PlayerRankForm() {
         combatTitle: "Combat Master",
         points: "300",
         bounty: "0",
+        webhookUrl: "",
         useManualInput: false,
         manualUsername: "",
         manualDisplayName: "",
@@ -525,6 +529,28 @@ export function PlayerRankForm() {
               )}
             />
           </div>
+          
+          <FormField
+            control={form.control}
+            name="webhookUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-gray-300">Discord Webhook URL (Optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    className="bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-gray-400">
+                  Discord webhook for notifications when this player is updated
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           
           <div className="grid grid-cols-2 gap-4">
             <FormField

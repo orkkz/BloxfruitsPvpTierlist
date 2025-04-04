@@ -102,9 +102,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         player = await storage.createPlayer(playerData);
       }
       
-      // If webhook URL is provided, send a notification after tiers are created
+      // If webhook URL is provided, send a notification
+      // Note: For new players this might not have any tiers yet
       if (playerData.webhookUrl) {
-        // We'll get any tiers in a later step for the webhook notification
+        // Get any existing tiers for this player or an empty array
+        const tiers = existingPlayer 
+          ? await storage.getTiersByPlayerId(existingPlayer.id)
+          : [];
+        
+        // Send webhook with player data
+        await sendDiscordWebhook(playerData.webhookUrl, {
+          username: player?.username || playerData.username,
+          avatarUrl: player?.avatarUrl || playerData.avatarUrl,
+          combatTitle: player?.combatTitle || playerData.combatTitle || "Pirate",
+          tiers: tiers
+        });
       }
       
       return existingPlayer ? res.json(player) : res.status(201).json(player);

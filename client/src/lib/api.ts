@@ -66,7 +66,8 @@ export async function addPlayerWithTier(data: NewPlayerData): Promise<{ player: 
       combatTitle: data.combatTitle || "Combat Master",
       points: data.points || 300,
       region: data.region || "Global",
-      bounty: data.bounty || "0"
+      bounty: data.bounty || "0",
+      webhookUrl: data.webhookUrl || ""
     };
 
     // If using manual input, use the provided values
