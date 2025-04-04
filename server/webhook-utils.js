@@ -16,15 +16,45 @@ export async function sendDiscordWebhook(webhookUrl, data) {
     return false;
   }
   
+  // Validate webhook URL format
+  if (!webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+    console.error('Invalid Discord webhook URL format');
+    return false;
+  }
+  
+  // Ensure URL is valid before attempting to fetch
   try {
-    // Create embed fields for each tier
-    const fields = data.tiers.map(tier => {
-      return {
-        name: `${tier.category.charAt(0).toUpperCase() + tier.category.slice(1)} Tier`,
-        value: `**${tier.tier}**`,
-        inline: true
-      };
-    });
+    // This will throw an error if the URL is invalid
+    new URL(webhookUrl);
+  } catch (error) {
+    console.error('Invalid webhook URL:', error.message);
+    return false;
+  }
+  
+  try {
+    // Ensure data.tiers is an array
+    const tiers = Array.isArray(data.tiers) ? data.tiers : [];
+    
+    // Create embed fields for each tier or a default field if no tiers
+    let fields = [];
+    if (tiers.length > 0) {
+      fields = tiers.map(tier => {
+        return {
+          name: `${tier.category.charAt(0).toUpperCase() + tier.category.slice(1)} Tier`,
+          value: `**${tier.tier}**`,
+          inline: true
+        };
+      });
+    } else {
+      // If no tiers, add a placeholder field
+      fields = [
+        {
+          name: "Status",
+          value: "Player added to tier list (no ranks yet)",
+          inline: false
+        }
+      ];
+    }
     
     // Get tier color based on first tier (or default to gray)
     const tierColors = {
@@ -37,7 +67,7 @@ export async function sendDiscordWebhook(webhookUrl, data) {
       'E': 10197915   // Gray
     };
     
-    const color = tierColors[data.tiers[0]?.tier] || 10197915;
+    const color = tiers.length > 0 ? (tierColors[tiers[0]?.tier] || 10197915) : 10197915; // Default to gray if no tiers
     
     // Construct webhook payload
     const payload = {

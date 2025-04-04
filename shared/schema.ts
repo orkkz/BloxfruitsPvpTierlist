@@ -39,7 +39,18 @@ export const admins = pgTable("admins", {
 });
 
 // Insert schemas
-export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });
+export const insertPlayerSchema = createInsertSchema(players)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    // Add validation for webhookUrl to ensure it's a valid Discord webhook URL or empty
+    webhookUrl: z.string()
+      .refine(
+        (val) => !val || val.startsWith('https://discord.com/api/webhooks/'), 
+        { message: 'If provided, webhook URL must be a valid Discord webhook URL' }
+      )
+      .optional()
+      .nullable(),
+  });
 export const insertTierSchema = createInsertSchema(tiers).omit({ id: true, updatedAt: true });
 export const insertAdminSchema = createInsertSchema(admins).omit({ id: true });
 

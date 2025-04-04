@@ -41,7 +41,12 @@ const playerRankSchema = z.object({
   combatTitle: z.string().min(1, "Combat Title is required"),
   points: z.string().optional(),
   bounty: z.string().optional(),
-  webhookUrl: z.string().optional(),
+  webhookUrl: z.string()
+    .refine(
+      (val) => !val || val.startsWith('https://discord.com/api/webhooks/'), 
+      { message: 'If provided, webhook URL must be a valid Discord webhook URL' }
+    )
+    .optional(),
   // Additional categories support
   additionalCategories: z.array(
     z.object({
@@ -545,7 +550,8 @@ export function PlayerRankForm() {
                   />
                 </FormControl>
                 <FormDescription className="text-xs text-gray-400">
-                  Discord webhook for notifications when this player is updated
+                  Enter a Discord webhook URL to send notifications when this player's rank is updated.
+                  Must start with https://discord.com/api/webhooks/
                 </FormDescription>
                 <FormMessage />
               </FormItem>
