@@ -3,8 +3,8 @@ import {
   tiers, Tier, InsertTier, 
   admins, Admin, InsertAdmin,
   PlayerWithTiers 
-} from "../shared/schema.js";
-import { db, pool, initDatabase, seedDefaultAdmin, testConnection } from "./pg-db.js";
+} from "../shared/schema";
+import { db, pool, initDatabase, seedDefaultAdmin, testConnection } from "./mysql-db";
 import { eq, and, like, desc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -45,26 +45,21 @@ export interface IStorage {
   getPlayersWithTiers(category?: string): Promise<PlayerWithTiers[]>;
 }
 
-// PostgreSQL storage implementation
-export class PostgreSQLStorage implements IStorage {
+// MySQL storage implementation
+export class MySQLStorage implements IStorage {
   private initialized: boolean = false;
   public sessionStore: session.Store;
   
   constructor() {
-    // Create a PostgreSQL session store
-    const PgStore = connectPgSimple(session);
-    
-    // Create a proper configuration for connect-pg-simple
-    const pgConfig = {
-      conString: process.env.DATABASE_URL,
-      createTableIfMissing: true
-    };
-    
-    this.sessionStore = new PgStore(pgConfig);
+    // Create an in-memory session store for MySQL
+    const MemoryStore = createMemoryStore(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
     
     // We'll initialize asynchronously to avoid blocking
     this.initialize().catch(error => {
-      console.error("Error initializing PostgreSQL database:", error);
+      console.error("Error initializing MySQL database:", error);
     });
   }
 
